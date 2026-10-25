@@ -1,0 +1,123 @@
+{
+  "dashboard": {
+    "title": "Qadam Platform Overview",
+    "timezone": "Asia/Bishkek",
+    "refresh": "30s",
+    "schemaVersion": 38,
+    "version": 1,
+    "panels": [
+      {
+        "title": "API Request Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ]
+      },
+      {
+        "title": "API Response Time (p95)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          }
+        ]
+      },
+      {
+        "title": "Active Rides",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "rides_active_total"
+          }
+        ]
+      },
+      {
+        "title": "Drivers Online",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "drivers_online_total"
+          }
+        ]
+      },
+      {
+        "title": "Database Connections",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends"
+          }
+        ]
+      },
+      {
+        "title": "Redis Memory Usage",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes / redis_memory_max_bytes * 100"
+          }
+        ],
+        "unit": "percent"
+      },
+      {
+        "title": "Ride Status Distribution",
+        "type": "piechart",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (status) (rides_by_status)"
+          }
+        ]
+      },
+      {
+        "title": "Payment Success Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(payment_successes_total[5m]) / rate(payment_attempts_total[5m]) * 100",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "unit": "percent"
+      },
+      {
+        "title": "API Error Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+            "legendFormat": "5xx errors"
+          },
+          {
+            "expr": "rate(http_requests_total{status=~\"4..\"}[5m])",
+            "legendFormat": "4xx errors"
+          }
+        ]
+      },
+      {
+        "title": "System CPU Usage",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "unit": "percent"
+      }
+    ]
+  }
+}
