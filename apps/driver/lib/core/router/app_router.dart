@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../api/api_service.dart';
+import '../providers/locale_provider.dart';
 import '../../features/auth/presentation/phone_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
@@ -15,11 +16,20 @@ import '../../features/documents/presentation/documents_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/earnings/presentation/earnings_screen.dart';
 import '../../features/vehicles/presentation/vehicle_manage_screen.dart';
+import '../../features/onboarding/presentation/language_selection_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final localeNotifier = ref.read(localeProvider.notifier);
+  final isFirstLaunch = localeNotifier.isFirstLaunch;
+
   return GoRouter(
-    initialLocation: '/auth/phone',
+    initialLocation: isFirstLaunch ? '/language' : '/auth/phone',
     routes: [
+      // Language selection (first launch)
+      GoRoute(
+        path: '/language',
+        builder: (_, __) => const LanguageSelectionScreen(),
+      ),
       GoRoute(
         path: '/auth/phone',
         builder: (_, __) => const PhoneScreen(),

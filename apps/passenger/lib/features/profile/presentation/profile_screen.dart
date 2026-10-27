@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/l10n/app_localizations.dart';
+import '../../../core/providers/locale_provider.dart';
 
 final _meProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(apiServiceProvider).getMe();
@@ -16,9 +18,11 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final meAsync = ref.watch(_meProvider);
+    final locale = ref.watch(localeProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppBar(title: Text(l10n.profile)),
       body: meAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
@@ -55,23 +59,23 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsSection(items: [
                 _SettingsItem(
                   icon: Icons.payment,
-                  label: 'Способы оплаты',
+                  label: l10n.paymentMethods,
                   onTap: () => context.push('/profile/payment-methods'),
                 ),
                 _SettingsItem(
                   icon: Icons.language,
-                  label: 'Язык',
-                  trailing: const Text('Русский'),
-                  onTap: () {},
+                  label: l10n.language,
+                  trailing: Text(locale.languageCode == 'ky' ? 'Кыргызча' : 'Русский'),
+                  onTap: () => _showLanguageDialog(context, ref),
                 ),
                 _SettingsItem(
                   icon: Icons.notifications_outlined,
-                  label: 'Уведомления',
+                  label: l10n.notifications,
                   onTap: () {},
                 ),
                 _SettingsItem(
                   icon: Icons.shield_outlined,
-                  label: 'Конфиденциальность',
+                  label: l10n.privacy,
                   onTap: () {},
                 ),
               ]),
@@ -79,12 +83,12 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsSection(items: [
                 _SettingsItem(
                   icon: Icons.help_outline,
-                  label: 'Справка',
+                  label: l10n.help,
                   onTap: () => context.push('/support/new'),
                 ),
                 _SettingsItem(
                   icon: Icons.info_outline,
-                  label: 'О приложении',
+                  label: l10n.about,
                   trailing: const Text('1.0.0',
                       style: TextStyle(color: AppTheme.textSecondary)),
                   onTap: () {},
@@ -94,7 +98,7 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsSection(items: [
                 _SettingsItem(
                   icon: Icons.logout,
-                  label: 'Выйти',
+                  label: l10n.logout,
                   labelColor: AppTheme.error,
                   onTap: () async {
                     await ref
@@ -107,6 +111,34 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выберите язык / Тилди тандаңыз'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Русский'),
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('ru');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('Кыргызча'),
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('ky');
+                Navigator.pop(context);
+              },
+            ),
+          ],
         ),
       ),
     );

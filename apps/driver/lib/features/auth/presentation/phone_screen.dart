@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/l10n/app_localizations.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -24,7 +25,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       await api.requestOtp(_ctrl.text.trim());
       if (mounted) context.push('/auth/otp', extra: _ctrl.text.trim());
     } catch (_) {
-      setState(() => _error = 'Не удалось отправить код');
+      setState(() => _error = AppLocalizations.of(context).codeSendFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -32,6 +33,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -52,15 +54,15 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       color: Colors.white, size: 24),
                 ),
                 const SizedBox(width: 12),
-                Text('Qadam Driver',
+                Text(l10n.appName,
                     style: Theme.of(context).textTheme.headlineMedium),
               ]),
               const SizedBox(height: 48),
-              Text('Войти как водитель',
+              Text(l10n.loginAsDriver,
                   style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: 8),
-              const Text('Введите номер телефона для получения кода',
-                  style: TextStyle(color: AppTheme.textSecondary)),
+              Text(l10n.enterPhone,
+                  style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 32),
               TextField(
                 controller: _ctrl,
@@ -68,7 +70,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 autofocus: true,
                 style: Theme.of(context).textTheme.titleLarge,
                 decoration: InputDecoration(
-                  hintText: '+996 700 000 000',
+                  hintText: l10n.phonePlaceholder,
                   errorText: _error,
                 ),
               ),
@@ -81,7 +83,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         height: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : const Text('Получить код'),
+                    : Text(l10n.getCode),
               ),
             ],
           ),

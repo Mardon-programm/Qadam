@@ -5,6 +5,18 @@ Transport platform for Kyrgyzstan — city rides, intercity (Region), and corpor
 **First production slice:** Qadam City + Platform core (Identity, Trust, Payments Ledger, Operations).  
 Region and Business are module boundaries in the monolith; full product surfaces come after City invariants are solid.
 
+## Multilingual Support
+
+Qadam supports two languages:
+- **Russian (ru)** - primary language
+- **Kyrgyz (ky)** - secondary language
+
+Both passenger and driver apps include:
+- Language selection screen on first launch
+- Language switcher in profile settings
+- Persistent language preference (saved locally)
+- Comprehensive translations for all UI elements
+
 ## Stack
 
 | Layer | Technology |
@@ -71,3 +83,7 @@ cd apps/ops && npm install && npm run dev
 ## Launch market
 
 Default city: **Bishkek**. Locales: `ru`, `ky`.
+
+## Driver Commission
+
+**Free for drivers** - The platform charges 0% commission to drivers, making it completely free for them to use. Passengers pay the full fare calculated based on distance, time, and traffic conditions.

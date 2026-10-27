@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/l10n/app_localizations.dart';
+import '../../../core/providers/locale_provider.dart';
 
 final _meProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(driverApiProvider).getMe();
@@ -20,9 +22,11 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final meAsync = ref.watch(_meProvider);
     final profileAsync = ref.watch(_profileProvider2);
+    final locale = ref.watch(localeProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppBar(title: Text(l10n.profile)),
       body: meAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
@@ -41,7 +45,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(me['full_name'] as String? ?? 'Водитель',
+              Text(me['full_name'] as String? ?? l10n.driver,
                   style: Theme.of(context).textTheme.titleLarge),
               Text(me['phone'] as String? ?? '',
                   style: const TextStyle(color: AppTheme.textSecondary)),
@@ -67,30 +71,36 @@ class ProfileScreen extends ConsumerWidget {
               _SettingsSection(items: [
                 _Item(
                   icon: Icons.directions_car,
-                  label: 'Мои автомобили',
+                  label: l10n.myVehicles,
                   onTap: () {},
                 ),
                 _Item(
                   icon: Icons.description,
-                  label: 'Документы',
+                  label: l10n.documents,
                   onTap: () => context.go('/documents'),
                 ),
                 _Item(
                   icon: Icons.star_outline,
-                  label: 'Рейтинг и отзывы',
+                  label: l10n.ratingAndReviews,
                   onTap: () {},
                 ),
               ]),
               const SizedBox(height: 16),
               _SettingsSection(items: [
                 _Item(
+                  icon: Icons.language,
+                  label: l10n.language,
+                  trailing: Text(locale.languageCode == 'ky' ? 'Кыргызча' : 'Русский'),
+                  onTap: () => _showLanguageDialog(context, ref),
+                ),
+                _Item(
                   icon: Icons.headset_mic_outlined,
-                  label: 'Поддержка',
+                  label: l10n.support,
                   onTap: () {},
                 ),
                 _Item(
                   icon: Icons.logout,
-                  label: 'Выйти',
+                  label: l10n.logout,
                   labelColor: AppTheme.error,
                   onTap: () async {
                     await clearTokens();
@@ -101,6 +111,34 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выберите язык / Тилди тандаңыз'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Русский'),
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('ru');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('Кыргызча'),
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('ky');
+                Navigator.pop(context);
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -118,12 +156,15 @@ class _StatusBadge extends StatelessWidget {
         _ => AppTheme.textSecondary,
       };
 
-  String get _text => switch (label) {
-        'approved' => 'Верифицирован',
-        'rejected' => 'Отклонён',
-        'pending' => 'На проверке',
+  String _text(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return switch (label) {
+        'approved' => l10n.verified,
+        'rejected' => l10n.rejected,
+        'pending' => l10n.pending,
         _ => label,
       };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +174,7 @@ class _StatusBadge extends StatelessWidget {
         color: _color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(_text,
+      child: Text(_text(context),
           style: TextStyle(color: _color, fontSize: 12, fontWeight: FontWeight.w500)),
     );
   }
@@ -145,6 +186,7 @@ class _OnlineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isOnline = status == 'online';
     final color = isOnline ? AppTheme.secondary : AppTheme.textSecondary;
     return Row(
@@ -156,7 +198,7 @@ class _OnlineBadge extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(isOnline ? 'Онлайн' : 'Офлайн',
+        Text(isOnline ? l10n.online : l10n.offline,
             style: TextStyle(color: color, fontSize: 12)),
       ],
     );
@@ -166,6 +208,7 @@ class _OnlineBadge extends StatelessWidget {
 class _SubscriptionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -178,14 +221,14 @@ class _SubscriptionCard extends ConsumerWidget {
         children: [
           const Icon(Icons.workspace_premium, color: Colors.white, size: 28),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Тариф',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('Flex (комиссионный)',
-                    style: TextStyle(
+                Text(l10n.plan,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text(l10n.flexCommission,
+                    style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600)),
               ],
@@ -194,7 +237,7 @@ class _SubscriptionCard extends ConsumerWidget {
           TextButton(
             onPressed: () {},
             style: TextButton.styleFrom(foregroundColor: Colors.white),
-            child: const Text('Сменить'),
+            child: Text(l10n.change),
           ),
         ],
       ),
@@ -233,12 +276,14 @@ class _Item extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.labelColor,
+    this.trailing,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? labelColor;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +291,7 @@ class _Item extends StatelessWidget {
       leading: Icon(icon, color: labelColor ?? AppTheme.textSecondary, size: 22),
       title: Text(label,
           style: TextStyle(color: labelColor ?? AppTheme.textPrimary, fontSize: 15)),
-      trailing: const Icon(Icons.arrow_forward_ios,
+      trailing: trailing ?? const Icon(Icons.arrow_forward_ios,
           size: 14, color: AppTheme.textSecondary),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),

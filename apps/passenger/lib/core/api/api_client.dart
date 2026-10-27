@@ -4,8 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const _baseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  // IP вашего ПК в локальной сети
-  defaultValue: 'http://192.168.100.125:8001/api/v1',
+  // Render production API
+  defaultValue: 'https://qadam-nc9f.onrender.com/api/v1',
 );
 
 const _storage = FlutterSecureStorage();

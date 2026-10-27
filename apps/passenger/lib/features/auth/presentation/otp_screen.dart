@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_button.dart';
@@ -57,7 +58,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           .signIn(tokens.accessToken, tokens.refreshToken);
       if (mounted) context.go('/home');
     } catch (_) {
-      setState(() => _error = 'Неверный код. Попробуйте ещё раз.');
+      final l10n = AppLocalizations.of(context);
+      setState(() => _error = l10n.invalidCode);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,6 +82,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = AppLocalizations.of(context).locale;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -94,11 +99,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              Text('Введите код',
+              Text(l10n.enterCode,
                   style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: 8),
               Text(
-                'Код отправлен на ${widget.phone}',
+                locale.languageCode == 'ky'
+                    ? 'Код жөнөтүлдү: ${widget.phone}'
+                    : 'Код отправлен на ${widget.phone}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 40),
@@ -154,7 +161,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               ],
               const SizedBox(height: 32),
               QadamButton(
-                label: 'Подтвердить',
+                label: l10n.confirm,
                 isLoading: _loading,
                 onPressed: _code.length == 6 ? _verify : null,
               ),
@@ -162,12 +169,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Center(
                 child: _resendCountdown > 0
                     ? Text(
-                        'Отправить повторно через $_resendCountdown с',
+                        locale.languageCode == 'ky'
+                            ? 'Кайра жөнөтүүгө $_resendCountdown секунд'
+                            : 'Отправить повторно через $_resendCountdown с',
                         style: Theme.of(context).textTheme.bodyMedium,
                       )
                     : TextButton(
                         onPressed: _resend,
-                        child: const Text('Отправить повторно'),
+                        child: Text(l10n.resendCode),
                       ),
               ),
             ],

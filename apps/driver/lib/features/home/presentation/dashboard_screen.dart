@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/l10n/app_localizations.dart';
 
 final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(driverApiProvider).getProfile();
@@ -55,6 +56,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileAsync = ref.watch(_profileProvider);
     final offersAsync = ref.watch(_offersProvider);
     final isOnline = ref.watch(_onlineProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -78,7 +80,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Qadam Driver'),
+                  Text(l10n.appName),
                 ],
               ),
             ),
@@ -99,7 +101,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(height: 16),
 
                   // Pending offers
-                  Text('Входящие заказы',
+                  Text(l10n.incomingOrders,
                       style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   offersAsync.when(
@@ -108,7 +110,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: CircularProgressIndicator(),
                     )),
                     error: (e, _) =>
-                        Text('Ошибка загрузки: $e',
+                        Text('${l10n.loadError}: $e',
                             style: const TextStyle(color: AppTheme.error)),
                     data: (offers) {
                       if (offers.isEmpty) {
@@ -145,6 +147,7 @@ class _OnlineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -170,7 +173,7 @@ class _OnlineCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOnline ? 'Вы онлайн' : 'Вы офлайн',
+                  isOnline ? l10n.youAreOnline : l10n.youAreOffline,
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -179,8 +182,8 @@ class _OnlineCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isOnline
-                      ? 'Получаете заказы'
-                      : 'Нажмите, чтобы начать принимать заказы',
+                      ? l10n.receivingOrders
+                      : l10n.tapToStart,
                   style:
                       const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
@@ -207,6 +210,7 @@ class _OnlineCard extends StatelessWidget {
 class _EarningsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final walletAsync = FutureProvider<Map<String, dynamic>>((ref) async {
       return ref.read(driverApiProvider).getWalletBalance();
     });
@@ -234,11 +238,11 @@ class _EarningsCard extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Баланс кошелька',
-                  style: TextStyle(
+              Text(l10n.walletBalance,
+                  style: const TextStyle(
                       color: AppTheme.textSecondary, fontSize: 13)),
               Text(
-                '— сом',
+                '— ${l10n.som}',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: AppTheme.earningsGreen,
                       fontWeight: FontWeight.w700,
@@ -249,7 +253,7 @@ class _EarningsCard extends ConsumerWidget {
           const Spacer(),
           TextButton(
             onPressed: () => GoRouter.of(context).go('/wallet'),
-            child: const Text('Детали'),
+            child: Text(l10n.details),
           ),
         ],
       ),
@@ -264,6 +268,7 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final net = offer['net_estimate'];
     final eta = offer['eta_min'];
 
@@ -299,10 +304,10 @@ class _OfferCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Новый заказ',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(l10n.newOrder,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   if (eta != null)
-                    Text('До пассажира: ~$eta мин',
+                    Text('${l10n.toPassenger}: ~$eta мин',
                         style: const TextStyle(
                             color: AppTheme.textSecondary, fontSize: 13)),
                 ],
@@ -317,7 +322,7 @@ class _OfferCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '~$net сом',
+                  '~$net ${l10n.som}',
                   style: const TextStyle(
                       color: AppTheme.earningsGreen,
                       fontWeight: FontWeight.w700),
@@ -336,6 +341,7 @@ class _EmptyOffers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(32),
       alignment: Alignment.center,
@@ -351,8 +357,8 @@ class _EmptyOffers extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             isOnline
-                ? 'Ожидаем заказы…'
-                : 'Включите статус «онлайн», чтобы получать заказы',
+                ? l10n.waitingOrders
+                : l10n.enableOnline,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppTheme.textSecondary),
           ),

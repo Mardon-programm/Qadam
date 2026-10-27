@@ -17,12 +17,22 @@ import '../../features/support/presentation/support_list_screen.dart';
 import '../../features/support/presentation/new_case_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/presentation/payment_methods_screen.dart';
+import '../../features/onboarding/presentation/language_selection_screen.dart';
 import '../storage/auth_storage.dart';
+import '../providers/locale_provider.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final localeNotifier = ref.read(localeProvider.notifier);
+  final isFirstLaunch = localeNotifier.isFirstLaunch;
+
   return GoRouter(
-    initialLocation: '/auth/phone',
+    initialLocation: isFirstLaunch ? '/language' : '/auth/phone',
     routes: [
+      // Language selection (first launch)
+      GoRoute(
+        path: '/language',
+        builder: (_, __) => const LanguageSelectionScreen(),
+      ),
       // Auth flow
       GoRoute(
         path: '/auth/phone',

@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/api/api_service.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_button.dart';
 import '../data/city_provider.dart';
@@ -29,8 +30,8 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
 
   LatLng? _pickup;
   LatLng? _dropoff;
-  String _pickupAddress = 'Ваше местоположение';
-  String _dropoffAddress = 'Куда едем?';
+  String _pickupAddress = '';
+  String _dropoffAddress = '';
   bool _loadingLocation = true;
   String? _locationError;
   bool _showQuote = false;
@@ -58,8 +59,9 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
         status = await Permission.location.request();
       }
       if (!status.isGranted) {
+        final l10n = AppLocalizations.of(context);
         setState(() {
-          _locationError = 'Нужен доступ к геолокации';
+          _locationError = l10n.needLocation;
           _loadingLocation = false;
         });
         return;
@@ -96,8 +98,9 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         setState(() {
-          _locationError = 'Не удалось получить местоположение: $e';
+          _locationError = '${l10n.locationError}: $e';
           _loadingLocation = false;
         });
       }
@@ -212,6 +215,8 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
@@ -262,7 +267,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _initLocation,
-                      child: const Text('Повторить'),
+                      child: Text(l10n.retry),
                     ),
                   ],
                 ),
@@ -278,7 +283,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
               onChangePoints: () {
                 setState(() {
                   _dropoff = null;
-                  _dropoffAddress = 'Куда едем?';
+                  _dropoffAddress = l10n.whereTo;
                   _polygonPoints.clear();
                   _showQuote = false;
                 });
@@ -320,6 +325,7 @@ class _RouteBottomSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final quoteAsync = ref.watch(quoteProvider);
 
     return Container(
@@ -356,8 +362,8 @@ class _RouteBottomSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Посадка',
-                        style: TextStyle(
+                    Text(l10n.pickupPoint,
+                        style: const TextStyle(
                             color: AppTheme.textSecondary, fontSize: 12)),
                     Text(pickupAddress,
                         maxLines: 1,
@@ -378,8 +384,8 @@ class _RouteBottomSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Назначение',
-                        style: TextStyle(
+                    Text(l10n.destination,
+                        style: const TextStyle(
                             color: AppTheme.textSecondary, fontSize: 12)),
                     Text(dropoffAddress,
                         maxLines: 1,
@@ -400,12 +406,12 @@ class _RouteBottomSheet extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Стоимость поездки',
-                          style: TextStyle(
+                      Text(l10n.rideCost,
+                          style: const TextStyle(
                               color: AppTheme.textSecondary, fontSize: 13)),
                       const SizedBox(height: 4),
                       Text(
-                        '${quoteAsync!.quotedPrice.toStringAsFixed(0)} сом',
+                        '${quoteAsync!.quotedPrice.toStringAsFixed(0)} ${l10n.som}',
                         style: Theme.of(context)
                             .textTheme
                             .headlineMedium
@@ -446,7 +452,7 @@ class _RouteBottomSheet extends ConsumerWidget {
                         color: AppTheme.warning, size: 16),
                     const SizedBox(width: 8),
                     Text(
-                      'Повышенный спрос ×${quoteAsync.surgeMultiplier.toStringAsFixed(1)}',
+                      '${l10n.surge} ×${quoteAsync.surgeMultiplier.toStringAsFixed(1)}',
                       style: const TextStyle(
                           color: AppTheme.warning,
                           fontSize: 13,
@@ -460,14 +466,14 @@ class _RouteBottomSheet extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: QadamButton(
-                label: 'Заказать поездку',
+                label: l10n.orderRide,
                 onPressed: onOrder,
                 icon: Icons.directions_car,
               ),
             ),
             const SizedBox(height: 12),
             QadamButton(
-              label: 'Изменить маршрут',
+              label: l10n.changeRoute,
               variant: QadamButtonVariant.text,
               onPressed: onChangePoints,
             ),

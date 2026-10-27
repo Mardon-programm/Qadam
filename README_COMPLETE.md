@@ -27,7 +27,16 @@ Production-ready transport platform for Kyrgyzstan.
   - ✅ Payment methods management
   - ✅ Ride history
   - ✅ Support tickets
-- ✅ Driver App (basic structure implemented)
+  - ✅ Multilingual support (Russian, Kyrgyz)
+  - ✅ Language selection on first launch
+- ✅ Driver App
+  - ✅ Authentication (phone + OTP)
+  - ✅ Dashboard with online status
+  - ✅ Order management
+  - ✅ Profile & Settings
+  - ✅ Multilingual support (Russian, Kyrgyz)
+  - ✅ Language selection on first launch
+  - ✅ Free for drivers (0% commission)
 
 ### Web Dashboards (Next.js)
 - ✅ Operations Console

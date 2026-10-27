@@ -26,15 +26,15 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       await api.requestOtp(_controller.text.trim());
       if (mounted) context.push('/auth/otp', extra: _controller.text.trim());
     } catch (e) {
-      setState(() => _error = 'Не удалось отправить код. Проверьте номер.');
+      setState(() => _error = AppLocalizations.of(context).codeSendFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final locale = l10n.locale;
 
     return Scaffold(
       body: SafeArea(
@@ -58,18 +58,20 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                         color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 12),
-                  Text('Qadam',
+                  Text(l10n.appName,
                       style: Theme.of(context).textTheme.headlineMedium),
                 ],
               ),
               const SizedBox(height: 48),
               Text(
-                'Введите номер телефона',
+                l10n.enterPhone,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 8),
               Text(
-                'Мы отправим SMS с кодом подтверждения',
+                locale.languageCode == 'ky'
+                    ? 'SMS код жөнөтөбүз'
+                    : 'Мы отправим SMS с кодом подтверждения',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 32),
@@ -79,7 +81,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 autofocus: true,
                 style: Theme.of(context).textTheme.titleLarge,
                 decoration: InputDecoration(
-                  hintText: '+996 700 000 000',
+                  hintText: l10n.phonePlaceholder,
                   prefixIcon: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text('🇰🇬', style: TextStyle(fontSize: 20)),
@@ -98,7 +100,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               const Spacer(),
               Center(
                 child: Text(
-                  'Nажимая «Продолжить», вы принимаете\nусловия использования Qadam',
+                  locale.languageCode == 'ky'
+                      ? '«Уланту» басуу менен Qadam колдонуу шарттарын кабыл аласыз'
+                      : 'Нажимая «Продолжить», вы принимаете условия использования Qadam',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
