@@ -19,7 +19,7 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("PAYMENT_PROVIDER", "mock")
 os.environ.setdefault("SMS_PROVIDER", "console")
 
-from app.core.database import Base, engine  # noqa: E402
+from app.core.database import Base, engine, SessionLocal  # noqa: E402
 import app.core.redis as redis_module  # noqa: E402
 from app.core.redis import get_redis, close_redis  # noqa: E402
 from app.main import app  # noqa: E402
@@ -108,3 +108,21 @@ async def driver_token(client: AsyncClient) -> str:
     )
     assert resp.status_code == 200, resp.text
     return resp.json()["access_token"]
+
+
+@pytest_asyncio.fixture()
+async def auth_headers(client: AsyncClient, passenger_token: str) -> dict:
+    """Authorization header for the default passenger test account."""
+    return {"Authorization": f"Bearer {passenger_token}"}
+
+
+@pytest_asyncio.fixture()
+async def test_user(client: AsyncClient, passenger_token: str):
+    """The passenger row created by the passenger_token fixture."""
+    from sqlalchemy import select
+
+    from app.modules.identity.models import User
+
+    async with SessionLocal() as db:
+        result = await db.execute(select(User).where(User.phone == "+996700111111"))
+        return result.scalar_one()
