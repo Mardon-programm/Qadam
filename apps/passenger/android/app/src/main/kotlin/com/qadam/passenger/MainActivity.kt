@@ -1,4 +1,4 @@
-package com.qadam.qadam_passenger
+package com.qadam.passenger
 
 import io.flutter.embedding.android.FlutterActivity
 
