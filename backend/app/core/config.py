@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     supported_locales: str = "ru,ky"
 
     database_url: str = "postgresql+asyncpg://qadam:qadam_dev_password@localhost:5432/qadam"
+    database_connect_timeout_seconds: float = 5.0
+    database_fallback_enabled: bool = True
+    fallback_database_url: str = "sqlite+aiosqlite:////tmp/qadam-fallback.db"
     redis_url: str = "redis://localhost:6379/0"
 
     sms_provider: str = "console"

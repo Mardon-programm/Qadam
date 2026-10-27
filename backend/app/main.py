@@ -15,6 +15,9 @@ from app.core.redis import close_redis, get_redis
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
+    from app.core.database import ensure_database
+
+    await ensure_database()
     await get_redis()
     yield
     # Shutdown
@@ -77,7 +80,13 @@ def create_app() -> FastAPI:
     # ── Health check ───────────────────────────────────────────────────────────
     @app.get("/health", tags=["health"])
     async def health() -> dict:
-        return {"status": "ok", "service": settings.app_name}
+        from app.core.database import database_mode
+
+        return {
+            "status": "ok",
+            "service": settings.app_name,
+            "database": database_mode,
+        }
 
     return app
 

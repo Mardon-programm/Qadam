@@ -103,6 +103,8 @@ The container entrypoint (`backend/start.sh`) runs `alembic upgrade head` before
 
 After changing environment variables, trigger a deploy and check the logs for `[start] migrations applied`.
 
+If the database is unreachable at startup the API no longer fails every login: it logs the error, falls back to an ephemeral SQLite file and reports `"database": "sqlite-fallback"` from `/health`. Data written in that mode is lost on the next deploy, so a real `DATABASE_URL` is still required for production.
+
 ## SMS and OTP in development
 
 The SMS provider is `console` by default, so login codes are printed to the backend log. While the API runs with `app_env=development` the OTP endpoint also returns `debug_code`; the mobile apps show that code on the verification screen and pre-fill it. Set a real SMS provider and a production `app_env` before launch.
