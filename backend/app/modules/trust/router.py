@@ -13,7 +13,6 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.core.enums import DriverOnlineStatus, UserRole, VerificationStatus
@@ -27,6 +26,7 @@ from app.modules.trust.schemas import (
     LocationIn,
     OnlineIn,
     ReviewDocumentIn,
+    ReviewVehicleIn,
     VehicleIn,
     VehicleOut,
 )
@@ -232,6 +232,37 @@ async def ops_list_driver_documents(
         select(DriverDocument).where(DriverDocument.driver_id == driver_id)
     )
     return [_doc_out(d) for d in result.scalars().all()]
+
+
+@ops_router.get(
+    "/{driver_id}/vehicles",
+    response_model=list[VehicleOut],
+    dependencies=[Depends(require_roles(UserRole.OPS))],
+)
+async def ops_list_driver_vehicles(
+    driver_id: str,
+    db: DbSession,
+) -> list[VehicleOut]:
+    result = await db.execute(
+        select(Vehicle).where(Vehicle.driver_id == driver_id)
+    )
+    return [_vehicle_out(v) for v in result.scalars().all()]
+
+
+@ops_router.post(
+    "/vehicles/{vehicle_id}/review",
+    response_model=VehicleOut,
+    dependencies=[Depends(require_roles(UserRole.OPS))],
+)
+async def ops_review_vehicle(
+    vehicle_id: str,
+    body: ReviewVehicleIn,
+    db: DbSession,
+) -> VehicleOut:
+    vehicle = await service.review_vehicle(
+        db, vehicle_id=vehicle_id, approve=body.approve
+    )
+    return _vehicle_out(vehicle)
 
 
 @ops_router.post(

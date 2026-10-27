@@ -14,6 +14,7 @@ export default function DriversPage() {
   const [filter, setFilter] = useState<string>('')
   const [selected, setSelected] = useState<any>(null)
   const [docsModal, setDocsModal] = useState(false)
+  const [vehiclesModal, setVehiclesModal] = useState(false)
   const [rejReason, setRejReason] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -28,6 +29,10 @@ export default function DriversPage() {
     selected && docsModal ? `/ops/driver/${selected.id}/documents` : null,
     () => opsApi.driverDocuments(selected.id).then(r => r.data),
   )
+  const { data: vehicles, mutate: mutateVehicles } = useSWR(
+    selected && vehiclesModal ? `/ops/driver/${selected.id}/vehicles` : null,
+    () => opsApi.driverVehicles(selected.id).then(r => r.data),
+  )
 
   async function reviewDoc(docId: string, approve: boolean) {
     setLoading(true)
@@ -38,6 +43,17 @@ export default function DriversPage() {
     } finally {
       setLoading(false)
       setRejReason('')
+    }
+  }
+
+  async function reviewVehicle(vehicleId: string, approve: boolean) {
+    setLoading(true)
+    try {
+      await opsApi.reviewVehicle(vehicleId, approve)
+      mutateVehicles()
+      mutate()
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -90,6 +106,17 @@ export default function DriversPage() {
             }}
           >
             Документы
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelected(r)
+              setVehiclesModal(true)
+            }}
+          >
+            Авто
           </Button>
           <Button
             size="sm"
@@ -214,6 +241,61 @@ export default function DriversPage() {
                         <XCircle size={14} /> Отклонить
                       </Button>
                     </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Vehicles modal */}
+      <Modal
+        open={vehiclesModal}
+        onClose={() => { setVehiclesModal(false); setSelected(null) }}
+        title={`Автомобили водителя ${selected?.id?.slice(0, 8) ?? ''}`}
+        className="max-w-2xl"
+      >
+        {!vehicles ? (
+          <div className="flex justify-center py-8">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : vehicles.length === 0 ? (
+          <p className="text-muted text-center py-8">Автомобилей нет</p>
+        ) : (
+          <div className="space-y-3">
+            {vehicles.map((v: any) => (
+              <div key={v.id} className="border border-border rounded-xl p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-ink">
+                      {v.make} {v.model} · {v.plate_number}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {v.color ? `${v.color} · ` : ''}{v.seats} мест · {v.vehicle_class}
+                    </p>
+                  </div>
+                  <StatusBadge status={v.status} />
+                </div>
+
+                {v.status === 'pending' && (
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      loading={loading}
+                      onClick={() => reviewVehicle(v.id, true)}
+                    >
+                      <CheckCircle size={14} /> Одобрить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      loading={loading}
+                      onClick={() => reviewVehicle(v.id, false)}
+                    >
+                      <XCircle size={14} /> Отклонить
+                    </Button>
                   </div>
                 )}
               </div>

@@ -235,7 +235,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'kg.qadam.driver',
+                userAgentPackageName: 'com.qadam.driver',
               ),
               // Driver marker
               if (_driverPosition != null)

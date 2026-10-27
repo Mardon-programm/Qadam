@@ -77,6 +77,10 @@ export const opsApi = {
   pendingDocs: () => api.get('/ops/drivers/pending-docs'),
   driverDocuments: (driverId: string) =>
     api.get(`/ops/driver/${driverId}/documents`),
+  driverVehicles: (driverId: string) =>
+    api.get(`/ops/driver/${driverId}/vehicles`),
+  reviewVehicle: (vehicleId: string, approve: boolean) =>
+    api.post(`/ops/driver/vehicles/${vehicleId}/review`, { approve }),
   reviewDocument: (docId: string, approve: boolean, reason?: string) =>
     api.post(`/ops/driver/documents/${docId}/review`, {
       approve,

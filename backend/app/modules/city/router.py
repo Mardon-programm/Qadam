@@ -204,3 +204,30 @@ async def my_offers(db: DbSession, user: CurrentUser):
         }
         for o in offers
     ]
+
+
+@router.get(
+    "/driver/active-ride",
+    response_model=RideOut | None,
+    dependencies=[Depends(require_roles(UserRole.DRIVER))],
+)
+async def active_ride(db: DbSession, user: CurrentUser) -> RideOut | None:
+    driver = await get_or_create_driver_profile(db, user.id)
+    result = await db.execute(
+        select(RideOrder)
+        .where(
+            RideOrder.driver_id == driver.id,
+            RideOrder.status.in_(
+                [
+                    RideOrderStatus.ASSIGNED,
+                    RideOrderStatus.DRIVER_ARRIVING,
+                    RideOrderStatus.DRIVER_ARRIVED,
+                    RideOrderStatus.IN_PROGRESS,
+                ]
+            ),
+        )
+        .order_by(RideOrder.assigned_at.desc())
+        .limit(1)
+    )
+    order = result.scalar_one_or_none()
+    return _ride_out(order) if order else None

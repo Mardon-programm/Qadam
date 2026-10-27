@@ -7,7 +7,6 @@ from app.core.enums import DriverOnlineStatus, VerificationStatus
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.modules.trust.models import DriverDocument, DriverProfile, Vehicle
 
-
 REQUIRED_DOC_TYPES = {
     "driver_license",
     "vehicle_registration",
@@ -70,6 +69,51 @@ async def set_online(
     return driver
 
 
+async def refresh_driver_verification(
+    db: AsyncSession, driver: DriverProfile
+) -> DriverProfile:
+    """Recompute driver verification from documents + active vehicle.
+
+    A driver is APPROVED only when every required document is approved
+    (and not expired) *and* the active vehicle is approved. If anything is
+    rejected the driver is REJECTED, otherwise PENDING.
+    """
+    docs = await db.execute(
+        select(DriverDocument).where(DriverDocument.driver_id == driver.id)
+    )
+    by_type = {d.doc_type: d for d in docs.scalars().all()}
+    today = date.today()
+
+    docs_ok = True
+    any_rejected = False
+    for required in REQUIRED_DOC_TYPES:
+        doc = by_type.get(required)
+        if not doc or doc.status != VerificationStatus.APPROVED:
+            docs_ok = False
+        if doc and doc.status == VerificationStatus.REJECTED:
+            any_rejected = True
+        if doc and doc.expires_on and doc.expires_on < today:
+            docs_ok = False
+    if any(d.status == VerificationStatus.REJECTED for d in by_type.values()):
+        any_rejected = True
+
+    vehicle_ok = False
+    if driver.active_vehicle_id:
+        vehicle = await db.get(Vehicle, driver.active_vehicle_id)
+        vehicle_ok = bool(vehicle and vehicle.status == VerificationStatus.APPROVED)
+        if vehicle and vehicle.status == VerificationStatus.REJECTED:
+            any_rejected = True
+
+    if docs_ok and vehicle_ok:
+        driver.verification_status = VerificationStatus.APPROVED
+    elif any_rejected:
+        driver.verification_status = VerificationStatus.REJECTED
+    else:
+        driver.verification_status = VerificationStatus.PENDING
+    await db.flush()
+    return driver
+
+
 async def review_document(
     db: AsyncSession,
     *,
@@ -89,37 +133,30 @@ async def review_document(
     doc.rejection_reason = None if approve else rejection_reason
     await db.flush()
 
-    # If all required docs approved, promote driver verification
     driver = await db.get(DriverProfile, doc.driver_id)
-    if driver and await documents_allow_online(db, driver):
-        # documents_allow_online requires APPROVED verification — chicken/egg.
-        # So check docs only:
-        pass
     if driver:
-        docs = await db.execute(
-            select(DriverDocument).where(DriverDocument.driver_id == driver.id)
-        )
-        by_type = {d.doc_type: d for d in docs.scalars().all()}
-        today = date.today()
-        ok = True
-        for required in REQUIRED_DOC_TYPES:
-            d = by_type.get(required)
-            if (
-                not d
-                or d.status != VerificationStatus.APPROVED
-                or (d.expires_on and d.expires_on < today)
-            ):
-                ok = False
-                break
-        vehicle_ok = False
-        if driver.active_vehicle_id:
-            v = await db.get(Vehicle, driver.active_vehicle_id)
-            vehicle_ok = bool(v and v.status == VerificationStatus.APPROVED)
-        if ok and vehicle_ok:
-            driver.verification_status = VerificationStatus.APPROVED
-        elif approve is False:
-            driver.verification_status = VerificationStatus.REJECTED
-        else:
-            driver.verification_status = VerificationStatus.PENDING
-        await db.flush()
+        await refresh_driver_verification(db, driver)
     return doc
+
+
+async def review_vehicle(
+    db: AsyncSession,
+    *,
+    vehicle_id: str,
+    approve: bool,
+) -> Vehicle:
+    vehicle = await db.get(Vehicle, vehicle_id)
+    if not vehicle:
+        raise NotFoundError("Vehicle not found")
+    vehicle.status = (
+        VerificationStatus.APPROVED if approve else VerificationStatus.REJECTED
+    )
+    await db.flush()
+
+    driver = await db.get(DriverProfile, vehicle.driver_id)
+    if driver:
+        # First approved vehicle automatically becomes the active one.
+        if approve and not driver.active_vehicle_id:
+            driver.active_vehicle_id = vehicle.id
+        await refresh_driver_verification(db, driver)
+    return vehicle

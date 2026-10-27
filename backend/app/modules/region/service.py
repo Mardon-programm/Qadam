@@ -13,10 +13,15 @@ from decimal import Decimal
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import BookingStatus, SeatStatus, VerificationStatus
+from app.core.config import get_settings
+from app.core.enums import (
+    BookingStatus,
+    LedgerDirection,
+    SeatStatus,
+    VerificationStatus,
+)
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.modules.ledger.service import post_entry
-from app.core.enums import LedgerDirection
 from app.modules.region.models import Booking, IntercityTrip, TripSeat
 from app.modules.trust.models import DriverProfile, Vehicle
 
@@ -362,8 +367,8 @@ async def complete_booking(db: AsyncSession, *, booking_id: str) -> Booking:
 
     booking.status = BookingStatus.COMPLETED
 
-    # Post ledger: 8% platform commission on region bookings
-    commission_rate = Decimal("0.08")
+    # Platform commission on region bookings (0 by default: free for drivers).
+    commission_rate = Decimal(str(get_settings().region_commission_rate))
     commission = (booking.total_price * commission_rate).quantize(Decimal("0.01"))
     driver_net = booking.total_price - commission
 
@@ -380,19 +385,20 @@ async def complete_booking(db: AsyncSession, *, booking_id: str) -> Booking:
         idempotency_key=f"booking:{booking_id}:driver_credit",
         description="Driver net for completed intercity booking",
     )
-    await post_entry(
-        db,
-        account_id="platform:fees",
-        account_owner_type="platform",
-        account_owner_id="qadam",
-        direction=LedgerDirection.CREDIT,
-        amount=commission,
-        entry_type="platform_fee",
-        reference_type="booking",
-        reference_id=booking_id,
-        idempotency_key=f"booking:{booking_id}:platform_fee",
-        description="Platform fee for completed intercity booking",
-    )
+    if commission > 0:
+        await post_entry(
+            db,
+            account_id="platform:fees",
+            account_owner_type="platform",
+            account_owner_id="qadam",
+            direction=LedgerDirection.CREDIT,
+            amount=commission,
+            entry_type="platform_fee",
+            reference_type="booking",
+            reference_id=booking_id,
+            idempotency_key=f"booking:{booking_id}:platform_fee",
+            description="Platform fee for completed intercity booking",
+        )
 
     await db.flush()
     return booking

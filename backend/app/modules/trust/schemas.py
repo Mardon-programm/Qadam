@@ -63,3 +63,8 @@ class LocationIn(BaseModel):
 class ReviewDocumentIn(BaseModel):
     approve: bool
     rejection_reason: str | None = None
+
+
+class ReviewVehicleIn(BaseModel):
+    approve: bool
+    rejection_reason: str | None = None

@@ -86,4 +86,9 @@ Default city: **Bishkek**. Locales: `ru`, `ky`.
 
 ## Driver Commission
 
-**Free for drivers** - The platform charges 0% commission to drivers, making it completely free for them to use. Passengers pay the full fare calculated based on distance, time, and traffic conditions.
+**Free for drivers** - The platform charges 0% commission to drivers (city rides and intercity bookings), making it completely free for them to use. Passengers pay the full fare calculated based on distance, time, and traffic conditions.
+
+## Payments
+
+- **City rides** — no online payment is required to order or accept a ride. The fare is settled between passenger and driver; the ledger records the charge/earning for accounting.
+- **Intercity bookings** — booking confirmation is linked to a payment record. The default provider is `mock`, so a payment can be completed via the dev webhook/mock endpoint until a real provider (MBank, Optima, etc.) is connected.

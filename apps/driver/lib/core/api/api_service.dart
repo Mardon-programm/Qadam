@@ -140,6 +140,12 @@ class DriverApiService {
     return r.data as List;
   }
 
+  /// Current assigned/in-progress ride, or null when the driver is free.
+  Future<Map<String, dynamic>?> getActiveRide() async {
+    final r = await _dio.get('/city/driver/active-ride');
+    return r.data == null ? null : r.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> acceptRide(String rideId) async {
     final r = await _dio.post('/city/rides/$rideId/accept');
     return r.data as Map<String, dynamic>;

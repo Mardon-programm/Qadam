@@ -79,19 +79,25 @@ async def post_ride_completion(
             idempotency_key=f"ride:{ride_id}:driver_credit",
             description="Driver net for completed ride",
         ),
-        await post_entry(
-            db,
-            account_id="platform:fees",
-            account_owner_type="platform",
-            account_owner_id="qadam",
-            direction=LedgerDirection.CREDIT,
-            amount=platform_fee,
-            entry_type="platform_fee",
-            reference_type="ride_order",
-            reference_id=ride_id,
-            idempotency_key=f"ride:{ride_id}:platform_fee",
-            description="Platform fee for completed ride",
-        ),
+    ]
+    # Platform fee is optional: with 0% commission there is nothing to post.
+    if platform_fee > 0:
+        entries.append(
+            await post_entry(
+                db,
+                account_id="platform:fees",
+                account_owner_type="platform",
+                account_owner_id="qadam",
+                direction=LedgerDirection.CREDIT,
+                amount=platform_fee,
+                entry_type="platform_fee",
+                reference_type="ride_order",
+                reference_id=ride_id,
+                idempotency_key=f"ride:{ride_id}:platform_fee",
+                description="Platform fee for completed ride",
+            )
+        )
+    entries.append(
         await post_entry(
             db,
             account_id=f"passenger:{passenger_id}",
@@ -104,8 +110,8 @@ async def post_ride_completion(
             reference_id=ride_id,
             idempotency_key=f"ride:{ride_id}:passenger_debit",
             description="Passenger charge for completed ride",
-        ),
-    ]
+        )
+    )
     return entries
 
 

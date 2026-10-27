@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
@@ -16,6 +17,10 @@ final _offersProvider = FutureProvider<List<dynamic>>((ref) async {
   return ref.read(driverApiProvider).getOffers();
 });
 
+final _activeRideProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  return ref.read(driverApiProvider).getActiveRide();
+});
+
 final _onlineProvider = StateProvider<bool>((ref) => false);
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -26,22 +31,88 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Timer? _heartbeatTimer;
+  Timer? _offersTimer;
+
   @override
   void initState() {
     super.initState();
+    _loadProfile();
+    // New offers must appear without a manual refresh.
+    _offersTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      ref.invalidate(_offersProvider);
+      ref.invalidate(_activeRideProvider);
+    });
   }
 
   @override
   void dispose() {
+    _heartbeatTimer?.cancel();
+    _offersTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await ref.read(driverApiProvider).getProfile();
+      final status = profile['online_status'];
+      final online = status == 'online' || status == 'busy';
+      ref.read(_onlineProvider.notifier).state = online;
+      if (online) _startHeartbeat();
+    } catch (e) {
+      debugPrint('PROFILE LOAD ERROR: $e');
+    }
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _sendLocation();
+    _heartbeatTimer =
+        Timer.periodic(const Duration(seconds: 15), (_) => _sendLocation());
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  /// Dispatch only considers drivers with a known location, so the driver
+  /// must report its position while online.
+  Future<void> _sendLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      await ref
+          .read(driverApiProvider)
+          .updateLocation(pos.latitude, pos.longitude);
+    } catch (e) {
+      debugPrint('LOCATION HEARTBEAT ERROR: $e');
+    }
   }
 
   Future<void> _toggleOnline(bool newVal) async {
     try {
       final api = ref.read(driverApiProvider);
       final result = await api.setOnline(newVal);
-      ref.read(_onlineProvider.notifier).state =
-          result['online_status'] == 'online';
+      final online = result['online_status'] == 'online';
+      ref.read(_onlineProvider.notifier).state = online;
+      if (online) {
+        _startHeartbeat();
+        ref.invalidate(_offersProvider);
+      } else {
+        _stopHeartbeat();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -55,6 +126,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(_profileProvider);
     final offersAsync = ref.watch(_offersProvider);
+    final activeRideAsync = ref.watch(_activeRideProvider);
     final isOnline = ref.watch(_onlineProvider);
     final l10n = AppLocalizations.of(context);
 
@@ -99,6 +171,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // Today's earnings
                   _EarningsCard(),
                   const SizedBox(height: 16),
+
+                  // Accepted ride that is not finished yet
+                  activeRideAsync.maybeWhen(
+                    data: (ride) => ride == null
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              _ActiveRideCard(
+                                ride: ride,
+                                onTap: () => context.push(
+                                    '/dashboard/ride/${ride['id']}'),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ),
+                    orElse: () => const SizedBox.shrink(),
+                  ),
 
                   // Pending offers
                   Text(l10n.incomingOrders,
@@ -202,6 +291,85 @@ class _OnlineCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActiveRideCard extends StatelessWidget {
+  const _ActiveRideCard({required this.ride, required this.onTap});
+
+  final Map<String, dynamic> ride;
+  final VoidCallback onTap;
+
+  String _statusLabel(String? status) {
+    switch (status) {
+      case 'assigned':
+        return 'Едьте к пассажиру';
+      case 'driver_arriving':
+        return 'В пути к пассажиру';
+      case 'driver_arrived':
+        return 'Вы на месте';
+      case 'in_progress':
+        return 'Поездка идёт';
+      default:
+        return 'Текущая поездка';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primary.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.local_taxi, color: AppTheme.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_statusLabel(ride['status'] as String?),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    ride['dropoff_address']?.toString() ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          ],
+        ),
       ),
     );
   }

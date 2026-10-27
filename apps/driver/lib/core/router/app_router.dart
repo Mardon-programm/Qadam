@@ -9,6 +9,7 @@ import '../../features/home/presentation/home_shell.dart';
 import '../../features/home/presentation/dashboard_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/offers/presentation/offer_screen.dart';
+import '../../features/rides/presentation/active_ride_screen.dart';
 import '../../features/region/presentation/my_trips_screen.dart';
 import '../../features/region/presentation/create_trip_screen.dart';
 import '../../features/wallet/presentation/wallet_screen.dart';
@@ -49,6 +50,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'offer/:rideId',
                 builder: (_, state) =>
                     OfferScreen(rideId: state.pathParameters['rideId']!),
+              ),
+              GoRoute(
+                path: 'ride/:rideId',
+                builder: (_, state) =>
+                    ActiveRideScreen(rideId: state.pathParameters['rideId']!),
               ),
             ],
           ),

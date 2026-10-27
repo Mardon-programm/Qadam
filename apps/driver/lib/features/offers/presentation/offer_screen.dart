@@ -47,7 +47,7 @@ class _OfferScreenState extends ConsumerState<OfferScreen> {
             backgroundColor: AppTheme.secondary,
           ),
         );
-        context.go('/dashboard');
+        context.go('/dashboard/ride/${widget.rideId}');
       }
     } catch (e) {
       if (mounted) {

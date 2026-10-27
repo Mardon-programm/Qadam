@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     city_min_fare: float = 80.0
     city_surge_cap: float = 2.0
     flex_commission_rate: float = 0.0  # Free for drivers - no commission
+    region_commission_rate: float = 0.0  # Free for drivers - no commission
 
     @property
     def locale_list(self) -> list[str]:
