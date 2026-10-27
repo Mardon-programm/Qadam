@@ -21,9 +21,7 @@ async def create_payment(
     idempotency_key: str,
     currency: str = "KGS",
 ) -> Payment:
-    existing = await db.execute(
-        select(Payment).where(Payment.idempotency_key == idempotency_key)
-    )
+    existing = await db.execute(select(Payment).where(Payment.idempotency_key == idempotency_key))
     found = existing.scalar_one_or_none()
     if found:
         return found

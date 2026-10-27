@@ -14,12 +14,8 @@ REQUIRED_DOC_TYPES = {
 }
 
 
-async def get_or_create_driver_profile(
-    db: AsyncSession, user_id: str
-) -> DriverProfile:
-    result = await db.execute(
-        select(DriverProfile).where(DriverProfile.user_id == user_id)
-    )
+async def get_or_create_driver_profile(db: AsyncSession, user_id: str) -> DriverProfile:
+    result = await db.execute(select(DriverProfile).where(DriverProfile.user_id == user_id))
     profile = result.scalar_one_or_none()
     if profile:
         return profile
@@ -38,9 +34,7 @@ async def documents_allow_online(db: AsyncSession, driver: DriverProfile) -> boo
     if not vehicle or vehicle.status != VerificationStatus.APPROVED:
         return False
 
-    docs = await db.execute(
-        select(DriverDocument).where(DriverDocument.driver_id == driver.id)
-    )
+    docs = await db.execute(select(DriverDocument).where(DriverDocument.driver_id == driver.id))
     by_type = {d.doc_type: d for d in docs.scalars().all()}
     today = date.today()
     for required in REQUIRED_DOC_TYPES:
@@ -52,9 +46,7 @@ async def documents_allow_online(db: AsyncSession, driver: DriverProfile) -> boo
     return True
 
 
-async def set_online(
-    db: AsyncSession, *, driver: DriverProfile, online: bool
-) -> DriverProfile:
+async def set_online(db: AsyncSession, *, driver: DriverProfile, online: bool) -> DriverProfile:
     if online:
         if not await documents_allow_online(db, driver):
             raise ForbiddenError(
@@ -69,18 +61,14 @@ async def set_online(
     return driver
 
 
-async def refresh_driver_verification(
-    db: AsyncSession, driver: DriverProfile
-) -> DriverProfile:
+async def refresh_driver_verification(db: AsyncSession, driver: DriverProfile) -> DriverProfile:
     """Recompute driver verification from documents + active vehicle.
 
     A driver is APPROVED only when every required document is approved
     (and not expired) *and* the active vehicle is approved. If anything is
     rejected the driver is REJECTED, otherwise PENDING.
     """
-    docs = await db.execute(
-        select(DriverDocument).where(DriverDocument.driver_id == driver.id)
-    )
+    docs = await db.execute(select(DriverDocument).where(DriverDocument.driver_id == driver.id))
     by_type = {d.doc_type: d for d in docs.scalars().all()}
     today = date.today()
 
@@ -125,9 +113,7 @@ async def review_document(
     doc = await db.get(DriverDocument, document_id)
     if not doc:
         raise NotFoundError("Document not found")
-    doc.status = (
-        VerificationStatus.APPROVED if approve else VerificationStatus.REJECTED
-    )
+    doc.status = VerificationStatus.APPROVED if approve else VerificationStatus.REJECTED
     doc.reviewed_by = reviewer_id
     doc.reviewed_at = datetime.now(UTC)
     doc.rejection_reason = None if approve else rejection_reason
@@ -148,9 +134,7 @@ async def review_vehicle(
     vehicle = await db.get(Vehicle, vehicle_id)
     if not vehicle:
         raise NotFoundError("Vehicle not found")
-    vehicle.status = (
-        VerificationStatus.APPROVED if approve else VerificationStatus.REJECTED
-    )
+    vehicle.status = VerificationStatus.APPROVED if approve else VerificationStatus.REJECTED
     await db.flush()
 
     driver = await db.get(DriverProfile, vehicle.driver_id)

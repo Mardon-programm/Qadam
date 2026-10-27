@@ -22,9 +22,7 @@ class Settings(BaseSettings):
     default_locale: str = "ru"
     supported_locales: str = "ru,ky"
 
-    database_url: str = (
-        "postgresql+asyncpg://qadam:qadam_dev_password@localhost:5432/qadam"
-    )
+    database_url: str = "postgresql+asyncpg://qadam:qadam_dev_password@localhost:5432/qadam"
     redis_url: str = "redis://localhost:6379/0"
 
     sms_provider: str = "console"

@@ -81,7 +81,9 @@ async def send_push(
 # ── Convenience helpers used by other modules ──────────────────────────────────
 
 
-async def notify_ride_assigned(redis: Redis, *, passenger_id: str, driver_name: str, eta_min: int) -> None:
+async def notify_ride_assigned(
+    redis: Redis, *, passenger_id: str, driver_name: str, eta_min: int
+) -> None:
     await enqueue(
         redis,
         user_id=passenger_id,

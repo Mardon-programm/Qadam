@@ -9,16 +9,14 @@ All routes require OPS role. Covers:
   - Ledger / financial snapshot
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.core.enums import (
     DriverOnlineStatus,
-    RideOrderStatus,
     SupportCaseStatus,
     UserRole,
     UserStatus,
@@ -150,9 +148,7 @@ async def pending_doc_review(db: DbSession) -> list[DriverSummary]:
         .distinct()
         .scalar_subquery()
     )
-    result = await db.execute(
-        select(DriverProfile).where(DriverProfile.id.in_(subq))
-    )
+    result = await db.execute(select(DriverProfile).where(DriverProfile.id.in_(subq)))
     return [_driver_summary(d) for d in result.scalars().all()]
 
 
@@ -245,22 +241,16 @@ async def platform_stats(db: DbSession) -> PlatformStatsOut:
     ).scalar_one()
     rides_today = (
         await db.execute(
-            select(func.count(RideOrder.id)).where(
-                RideOrder.created_at >= today_start
-            )
+            select(func.count(RideOrder.id)).where(RideOrder.created_at >= today_start)
         )
     ).scalar_one()
     bookings_today = (
-        await db.execute(
-            select(func.count(Booking.id)).where(Booking.created_at >= today_start)
-        )
+        await db.execute(select(func.count(Booking.id)).where(Booking.created_at >= today_start))
     ).scalar_one()
     open_cases = (
         await db.execute(
             select(func.count(SupportCase.id)).where(
-                SupportCase.status.in_(
-                    [SupportCaseStatus.OPEN, SupportCaseStatus.IN_PROGRESS]
-                )
+                SupportCase.status.in_([SupportCaseStatus.OPEN, SupportCaseStatus.IN_PROGRESS])
             )
         )
     ).scalar_one()
@@ -345,6 +335,7 @@ async def revenue_report(
     days: int = 30,
 ) -> dict:
     from app.modules.reporting.service import platform_revenue_summary
+
     return await platform_revenue_summary(db, days=days)
 
 
@@ -355,4 +346,5 @@ async def driver_earnings(
     days: int = 30,
 ) -> dict:
     from app.modules.reporting.service import driver_earnings_summary
+
     return await driver_earnings_summary(db, driver_id=driver_id, days=days)

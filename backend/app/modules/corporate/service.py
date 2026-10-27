@@ -35,9 +35,7 @@ async def create_account(
 
 async def get_account(db: AsyncSession, account_id: str) -> CorporateAccount:
     """Get account by ID."""
-    result = await db.execute(
-        select(CorporateAccount).where(CorporateAccount.id == account_id)
-    )
+    result = await db.execute(select(CorporateAccount).where(CorporateAccount.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
         raise AppError("Corporate account not found", 404)
@@ -118,9 +116,7 @@ async def update_member(
     data: CorporateMemberUpdate,
 ) -> CorporateMember:
     """Update corporate member."""
-    result = await db.execute(
-        select(CorporateMember).where(CorporateMember.id == member_id)
-    )
+    result = await db.execute(select(CorporateMember).where(CorporateMember.id == member_id))
     member = result.scalar_one_or_none()
     if not member:
         raise AppError("Corporate member not found", 404)
@@ -160,9 +156,7 @@ async def get_account_stats(db: AsyncSession, account_id: str) -> dict:
 
     # Count members
     total_members_result = await db.execute(
-        select(func.count(CorporateMember.id)).where(
-            CorporateMember.account_id == account_id
-        )
+        select(func.count(CorporateMember.id)).where(CorporateMember.account_id == account_id)
     )
     total_members = total_members_result.scalar() or 0
 

@@ -27,9 +27,7 @@ class IntercityTrip(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     driver_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("driver_profiles.id"), nullable=False
     )
-    vehicle_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("vehicles.id"), nullable=False
-    )
+    vehicle_id: Mapped[str] = mapped_column(String(36), ForeignKey("vehicles.id"), nullable=False)
     origin_city: Mapped[str] = mapped_column(String(64), nullable=False)
     destination_city: Mapped[str] = mapped_column(String(64), nullable=False)
     depart_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -54,9 +52,7 @@ class TripSeat(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         String(36), ForeignKey("intercity_trips.id"), nullable=False
     )
     seat_code: Mapped[str] = mapped_column(String(16), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), default=SeatStatus.AVAILABLE, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(32), default=SeatStatus.AVAILABLE, nullable=False)
     held_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     booking_id: Mapped[str | None] = mapped_column(String(36))
     version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -69,15 +65,11 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         UniqueConstraint("idempotency_key", name="uq_booking_idempotency"),
     )
 
-    passenger_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    passenger_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     trip_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("intercity_trips.id"), nullable=False
     )
-    status: Mapped[str] = mapped_column(
-        String(32), default=BookingStatus.HELD, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(32), default=BookingStatus.HELD, nullable=False)
     seat_codes: Mapped[str] = mapped_column(Text, nullable=False)  # comma-separated
     passenger_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     baggage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

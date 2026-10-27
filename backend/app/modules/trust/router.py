@@ -57,9 +57,7 @@ async def get_my_profile(
 )
 async def list_vehicles(db: DbSession, user: CurrentUser) -> list[VehicleOut]:
     profile = await service.get_or_create_driver_profile(db, user.id)
-    result = await db.execute(
-        select(Vehicle).where(Vehicle.driver_id == profile.id)
-    )
+    result = await db.execute(select(Vehicle).where(Vehicle.driver_id == profile.id))
     return [_vehicle_out(v) for v in result.scalars().all()]
 
 
@@ -128,9 +126,7 @@ async def activate_vehicle(
 )
 async def list_documents(db: DbSession, user: CurrentUser) -> list[DocumentOut]:
     profile = await service.get_or_create_driver_profile(db, user.id)
-    result = await db.execute(
-        select(DriverDocument).where(DriverDocument.driver_id == profile.id)
-    )
+    result = await db.execute(select(DriverDocument).where(DriverDocument.driver_id == profile.id))
     return [_doc_out(d) for d in result.scalars().all()]
 
 
@@ -228,9 +224,7 @@ async def ops_list_driver_documents(
     driver_id: str,
     db: DbSession,
 ) -> list[DocumentOut]:
-    result = await db.execute(
-        select(DriverDocument).where(DriverDocument.driver_id == driver_id)
-    )
+    result = await db.execute(select(DriverDocument).where(DriverDocument.driver_id == driver_id))
     return [_doc_out(d) for d in result.scalars().all()]
 
 
@@ -243,9 +237,7 @@ async def ops_list_driver_vehicles(
     driver_id: str,
     db: DbSession,
 ) -> list[VehicleOut]:
-    result = await db.execute(
-        select(Vehicle).where(Vehicle.driver_id == driver_id)
-    )
+    result = await db.execute(select(Vehicle).where(Vehicle.driver_id == driver_id))
     return [_vehicle_out(v) for v in result.scalars().all()]
 
 
@@ -259,9 +251,7 @@ async def ops_review_vehicle(
     body: ReviewVehicleIn,
     db: DbSession,
 ) -> VehicleOut:
-    vehicle = await service.review_vehicle(
-        db, vehicle_id=vehicle_id, approve=body.approve
-    )
+    vehicle = await service.review_vehicle(db, vehicle_id=vehicle_id, approve=body.approve)
     return _vehicle_out(vehicle)
 
 

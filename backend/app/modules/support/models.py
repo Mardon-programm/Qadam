@@ -15,9 +15,7 @@ class SupportCase(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     case_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), default=SupportCaseStatus.OPEN, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(32), default=SupportCaseStatus.OPEN, nullable=False)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     reference_type: Mapped[str | None] = mapped_column(String(64))

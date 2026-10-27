@@ -14,9 +14,7 @@ class Subscription(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __table_args__ = (Index("ix_subscriptions_driver", "driver_id", "status"),)
 
     driver_id: Mapped[str] = mapped_column(String(36), nullable=False)
-    plan: Mapped[str] = mapped_column(
-        String(32), default=SubscriptionPlan.FLEX, nullable=False
-    )
+    plan: Mapped[str] = mapped_column(String(32), default=SubscriptionPlan.FLEX, nullable=False)
     status: Mapped[str] = mapped_column(
         String(32), default=SubscriptionStatus.ACTIVE, nullable=False
     )

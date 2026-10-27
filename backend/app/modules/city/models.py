@@ -28,16 +28,10 @@ class RideOrder(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         # unique partial assignment is represented by driver_id + status checks.
     )
 
-    passenger_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
-    driver_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("driver_profiles.id")
-    )
+    passenger_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    driver_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("driver_profiles.id"))
     vehicle_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("vehicles.id"))
-    status: Mapped[str] = mapped_column(
-        String(32), default=RideOrderStatus.CREATED, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(32), default=RideOrderStatus.CREATED, nullable=False)
     city: Mapped[str] = mapped_column(String(64), default="bishkek", nullable=False)
 
     pickup_address: Mapped[str] = mapped_column(Text, nullable=False)

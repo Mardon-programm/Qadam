@@ -21,9 +21,7 @@ RedisDep = Annotated[object, Depends(get_redis)]
 
 async def get_current_user(
     db: DbSession,
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
-    ] = None,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
 ) -> User:
     if credentials is None:
         raise UnauthorizedError()

@@ -59,9 +59,7 @@ async def get_seats(trip_id: str, db: DbSession, user: CurrentUser) -> list[Seat
     trip = await db.get(IntercityTrip, trip_id)
     if not trip:
         raise NotFoundError("Trip not found")
-    result = await db.execute(
-        select(TripSeat).where(TripSeat.trip_id == trip_id)
-    )
+    result = await db.execute(select(TripSeat).where(TripSeat.trip_id == trip_id))
     return [SeatOut(seat_code=s.seat_code, status=s.status) for s in result.scalars().all()]
 
 
@@ -165,9 +163,7 @@ async def create_booking(
 )
 async def my_bookings(db: DbSession, user: CurrentUser) -> list[BookingOut]:
     result = await db.execute(
-        select(Booking)
-        .where(Booking.passenger_id == user.id)
-        .order_by(Booking.created_at.desc())
+        select(Booking).where(Booking.passenger_id == user.id).order_by(Booking.created_at.desc())
     )
     return [_booking_out(b) for b in result.scalars().all()]
 

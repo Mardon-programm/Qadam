@@ -208,8 +208,9 @@ async def offer_timeout_worker() -> None:
 async def document_expiry_worker() -> None:
     """Every 24 hours check for expiring driver documents and notify them."""
     from datetime import timedelta
-    from app.modules.trust.models import DriverDocument
+
     from app.modules.notifications.service import enqueue_notification
+    from app.modules.trust.models import DriverDocument
 
     logger.info("Document expiry worker started")
     while _running:
@@ -238,7 +239,10 @@ async def document_expiry_worker() -> None:
                             redis,
                             user_id=doc.driver_id,
                             title="Документ истекает",
-                            body=f"Ваш документ {doc.document_type} истекает через {days_left} дней. Пожалуйста, обновите его.",
+                            body=(
+                                f"Ваш документ {doc.document_type} истекает через "
+                                f"{days_left} дней. Пожалуйста, обновите его."
+                            ),
                             channel="push",
                         )
                     logger.info("Notified %d drivers about expiring documents", len(expiring))
@@ -258,7 +262,7 @@ async def payout_worker() -> None:
 
     while _running:
         try:
-            async with SessionLocal() as db:
+            async with SessionLocal() as _db:
                 # TODO: Implement payout processing logic
                 # 1. Get drivers with pending payouts
                 # 2. Calculate total payout amount

@@ -59,9 +59,7 @@ async def create_trip(
         raise ConflictError("Departure time must be in the future")
 
     if seat_count > vehicle.seats:
-        raise ConflictError(
-            f"seat_count ({seat_count}) exceeds vehicle capacity ({vehicle.seats})"
-        )
+        raise ConflictError(f"seat_count ({seat_count}) exceeds vehicle capacity ({vehicle.seats})")
 
     trip = IntercityTrip(
         driver_id=driver_id,
@@ -111,9 +109,7 @@ async def count_available_seats(db: AsyncSession, trip_id: str) -> int:
     return available
 
 
-async def get_trip_with_availability(
-    db: AsyncSession, trip_id: str
-) -> tuple[IntercityTrip, int]:
+async def get_trip_with_availability(db: AsyncSession, trip_id: str) -> tuple[IntercityTrip, int]:
     trip = await db.get(IntercityTrip, trip_id)
     if not trip:
         raise NotFoundError("Trip not found")
@@ -152,10 +148,12 @@ async def _expire_stale_holds(db: AsyncSession, trip_id: str) -> None:
     """Release HELD seats whose hold timer has expired."""
     now = datetime.now(UTC)
     result = await db.execute(
-        select(TripSeat).where(
+        select(TripSeat)
+        .where(
             TripSeat.trip_id == trip_id,
             TripSeat.status == SeatStatus.HELD,
-        ).with_for_update(skip_locked=True)
+        )
+        .with_for_update(skip_locked=True)
     )
     for seat in result.scalars().all():
         if seat.held_until and seat.held_until < now:
@@ -182,18 +180,19 @@ async def hold_seats(
     held_until = now + timedelta(seconds=HOLD_TTL_SECONDS)
 
     result = await db.execute(
-        select(TripSeat).where(
+        select(TripSeat)
+        .where(
             and_(
                 TripSeat.trip_id == trip_id,
                 TripSeat.status == SeatStatus.AVAILABLE,
             )
-        ).limit(count).with_for_update()
+        )
+        .limit(count)
+        .with_for_update()
     )
     seats = list(result.scalars().all())
     if len(seats) < count:
-        raise ConflictError(
-            f"Not enough available seats: requested {count}, found {len(seats)}"
-        )
+        raise ConflictError(f"Not enough available seats: requested {count}, found {len(seats)}")
     for seat in seats:
         seat.status = SeatStatus.HELD
         seat.held_until = held_until
@@ -205,10 +204,12 @@ async def hold_seats(
 async def confirm_seats(db: AsyncSession, booking_id: str) -> list[TripSeat]:
     """Transition HELD seats to CONFIRMED after successful payment."""
     result = await db.execute(
-        select(TripSeat).where(
+        select(TripSeat)
+        .where(
             TripSeat.booking_id == booking_id,
             TripSeat.status == SeatStatus.HELD,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     seats = list(result.scalars().all())
     if not seats:
@@ -223,10 +224,12 @@ async def confirm_seats(db: AsyncSession, booking_id: str) -> list[TripSeat]:
 async def release_seats(db: AsyncSession, booking_id: str) -> None:
     """Return seats to AVAILABLE on booking cancellation."""
     result = await db.execute(
-        select(TripSeat).where(
+        select(TripSeat)
+        .where(
             TripSeat.booking_id == booking_id,
             TripSeat.status.in_([SeatStatus.HELD, SeatStatus.CONFIRMED]),
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     for seat in result.scalars().all():
         seat.status = SeatStatus.AVAILABLE
@@ -323,9 +326,7 @@ async def cancel_booking(
     cancelled_by_id: str,
     is_ops: bool = False,
 ) -> Booking:
-    result = await db.execute(
-        select(Booking).where(Booking.id == booking_id).with_for_update()
-    )
+    result = await db.execute(select(Booking).where(Booking.id == booking_id).with_for_update())
     booking = result.scalar_one_or_none()
     if not booking:
         raise NotFoundError("Booking not found")
@@ -342,9 +343,7 @@ async def cancel_booking(
 
 async def complete_booking(db: AsyncSession, *, booking_id: str) -> Booking:
     """Mark booking as COMPLETED and post earnings to ledger."""
-    result = await db.execute(
-        select(Booking).where(Booking.id == booking_id).with_for_update()
-    )
+    result = await db.execute(select(Booking).where(Booking.id == booking_id).with_for_update())
     booking = result.scalar_one_or_none()
     if not booking:
         raise NotFoundError("Booking not found")
@@ -357,10 +356,12 @@ async def complete_booking(db: AsyncSession, *, booking_id: str) -> Booking:
 
     # Move seats to COMPLETED
     result2 = await db.execute(
-        select(TripSeat).where(
+        select(TripSeat)
+        .where(
             TripSeat.booking_id == booking_id,
             TripSeat.status == SeatStatus.CONFIRMED,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     for seat in result2.scalars().all():
         seat.status = SeatStatus.COMPLETED

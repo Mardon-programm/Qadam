@@ -39,9 +39,7 @@ class Payout(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     driver_id: Mapped[str] = mapped_column(String(36), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), default="KGS", nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), default=PayoutStatus.PENDING, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(32), default=PayoutStatus.PENDING, nullable=False)
     provider_ref: Mapped[str | None] = mapped_column(String(128))
     failure_reason: Mapped[str | None] = mapped_column(Text)
 

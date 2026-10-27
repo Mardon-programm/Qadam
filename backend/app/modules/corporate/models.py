@@ -20,9 +20,7 @@ class CorporateAccount(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class CorporateMember(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "corporate_members"
-    __table_args__ = (
-        UniqueConstraint("account_id", "user_id", name="uq_corporate_member"),
-    )
+    __table_args__ = (UniqueConstraint("account_id", "user_id", name="uq_corporate_member"),)
 
     account_id: Mapped[str] = mapped_column(String(36), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)

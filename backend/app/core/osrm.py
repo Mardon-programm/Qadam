@@ -68,7 +68,7 @@ class OSRMClient:
                 "geometry": route["geometry"],
             }
 
-        except httpx.HTTPError as e:
+        except httpx.HTTPError:
             # Fallback to straight-line estimation
             return await self._fallback_estimate(start_lat, start_lng, end_lat, end_lng)
 
@@ -88,7 +88,9 @@ class OSRMClient:
         """
         coords = ";".join([f"{lng},{lat}" for lng, lat in sources + destinations])
         sources_idx = ";".join([str(i) for i in range(len(sources))])
-        dests_idx = ";".join([str(i) for i in range(len(sources), len(sources) + len(destinations))])
+        dests_idx = ";".join(
+            [str(i) for i in range(len(sources), len(sources) + len(destinations))]
+        )
 
         url = f"{self.base_url}/table/v1/driving/{coords}"
         params = {

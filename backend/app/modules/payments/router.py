@@ -7,9 +7,8 @@ Covers:
   - Wallet balance for driver
 """
 
-import hmac
 import hashlib
-import json
+import hmac
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 

@@ -27,9 +27,7 @@ class DriverProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Index("ix_driver_verification", "verification_status"),
     )
 
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     verification_status: Mapped[str] = mapped_column(
         String(32), default=VerificationStatus.DRAFT, nullable=False
     )
@@ -38,9 +36,7 @@ class DriverProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     rating: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("5.00"))
     rating_count: Mapped[int] = mapped_column(default=0, nullable=False)
-    reliability_score: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2), default=Decimal("100.00")
-    )
+    reliability_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("100.00"))
     active_vehicle_id: Mapped[str | None] = mapped_column(String(36))
     last_lat: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))
     last_lng: Mapped[Decimal | None] = mapped_column(Numeric(10, 7))

@@ -79,8 +79,7 @@ async def issue_tokens(
     session = RefreshSession(
         user_id=user.id,
         jti=payload["jti"],
-        expires_at=datetime.now(UTC)
-        + timedelta(days=settings.refresh_token_ttl_days),
+        expires_at=datetime.now(UTC) + timedelta(days=settings.refresh_token_ttl_days),
         user_agent=user_agent,
         ip_address=ip_address,
     )

@@ -116,9 +116,7 @@ async def post_ride_completion(
 
 
 async def wallet_balance(db: AsyncSession, account_id: str) -> Decimal:
-    result = await db.execute(
-        select(LedgerEntry).where(LedgerEntry.account_id == account_id)
-    )
+    result = await db.execute(select(LedgerEntry).where(LedgerEntry.account_id == account_id))
     balance = Decimal("0.00")
     for entry in result.scalars().all():
         if entry.direction == LedgerDirection.CREDIT:

@@ -48,3 +48,5 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+# FastAPI uses Depends()/Query()/Path() in argument defaults by design.
+ignore = ["B008"]

@@ -23,12 +23,8 @@ async def create_quote(
     dropoff_lng: float,
     surge: float = 1.0,
 ) -> dict:
-    distance, duration = await estimate_route(
-        pickup_lat, pickup_lng, dropoff_lat, dropoff_lng
-    )
-    return quote_city_fare(
-        distance_km=distance, duration_min=duration, surge=surge
-    )
+    distance, duration = await estimate_route(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
+    return quote_city_fare(distance_km=distance, duration_min=duration, surge=surge)
 
 
 async def create_ride_order(
@@ -131,12 +127,14 @@ async def find_candidate_drivers(
             eta_minutes = eta_seconds / 60.0
             distance_km = route.get("distance", 0) / 1000.0
 
-            driver_etas.append({
-                "driver": driver,
-                "eta_min": eta_minutes,
-                "distance_km": distance_km,
-                "fallback": route.get("fallback", False),
-            })
+            driver_etas.append(
+                {
+                    "driver": driver,
+                    "eta_min": eta_minutes,
+                    "distance_km": distance_km,
+                    "fallback": route.get("fallback", False),
+                }
+            )
         except Exception:
             # Fallback to straight-line estimation for this driver
             dlat = float(driver.last_lat) - pickup_lat  # type: ignore
@@ -145,12 +143,14 @@ async def find_candidate_drivers(
             road_dist = straight_dist * 1.3
             eta_min = (road_dist / 40.0) * 60.0  # 40 km/h average
 
-            driver_etas.append({
-                "driver": driver,
-                "eta_min": max(eta_min, 3.0),
-                "distance_km": road_dist,
-                "fallback": True,
-            })
+            driver_etas.append(
+                {
+                    "driver": driver,
+                    "eta_min": max(eta_min, 3.0),
+                    "distance_km": road_dist,
+                    "fallback": True,
+                }
+            )
 
     # Stage 3: Rank drivers
     # Not just by minimum ETA - consider reliability and fair distribution
@@ -177,11 +177,17 @@ async def find_candidate_drivers(
     driver_etas.sort(key=ranking_score)
 
     # Return top candidates with metadata
-    return [(item["driver"], {
-        "eta_min": item["eta_min"],
-        "distance_km": item["distance_km"],
-        "fallback": item["fallback"],
-    }) for item in driver_etas[:limit]]
+    return [
+        (
+            item["driver"],
+            {
+                "eta_min": item["eta_min"],
+                "distance_km": item["distance_km"],
+                "fallback": item["fallback"],
+            },
+        )
+        for item in driver_etas[:limit]
+    ]
 
 
 async def offer_to_drivers(db: AsyncSession, order: RideOrder) -> list[RideOffer]:
@@ -238,9 +244,7 @@ async def accept_ride(
     if not driver.active_vehicle_id:
         raise ForbiddenError("No active vehicle")
 
-    result = await db.execute(
-        select(RideOrder).where(RideOrder.id == order_id).with_for_update()
-    )
+    result = await db.execute(select(RideOrder).where(RideOrder.id == order_id).with_for_update())
     order = result.scalar_one_or_none()
     if not order:
         raise NotFoundError("Ride not found")
@@ -263,9 +267,7 @@ async def accept_ride(
     driver.online_status = DriverOnlineStatus.BUSY
 
     # Mark matching offer accepted, others expired
-    offers = await db.execute(
-        select(RideOffer).where(RideOffer.ride_order_id == order.id)
-    )
+    offers = await db.execute(select(RideOffer).where(RideOffer.ride_order_id == order.id))
     for offer in offers.scalars().all():
         if offer.driver_id == driver.id and offer.status == "offered":
             offer.status = "accepted"
@@ -284,9 +286,7 @@ async def transition_ride(
     actor_driver_id: str | None,
     new_status: RideOrderStatus,
 ) -> RideOrder:
-    result = await db.execute(
-        select(RideOrder).where(RideOrder.id == order_id).with_for_update()
-    )
+    result = await db.execute(select(RideOrder).where(RideOrder.id == order_id).with_for_update())
     order = result.scalar_one_or_none()
     if not order:
         raise NotFoundError("Ride not found")
@@ -334,9 +334,7 @@ async def cancel_ride(
     passenger_id: str | None = None,
     driver_id: str | None = None,
 ) -> RideOrder:
-    result = await db.execute(
-        select(RideOrder).where(RideOrder.id == order_id).with_for_update()
-    )
+    result = await db.execute(select(RideOrder).where(RideOrder.id == order_id).with_for_update())
     order = result.scalar_one_or_none()
     if not order:
         raise NotFoundError("Ride not found")

@@ -11,15 +11,13 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.modules.subscriptions.models import Subscription
 
 PLAN_PRICES: dict[str, Decimal] = {
-    SubscriptionPlan.FLEX: Decimal("0.00"),        # Commission-based, no fixed fee
+    SubscriptionPlan.FLEX: Decimal("0.00"),  # Commission-based, no fixed fee
     SubscriptionPlan.PRO_DAILY: Decimal("100.00"),
     SubscriptionPlan.PRO_MONTHLY: Decimal("2500.00"),
 }
 
 
-async def get_active_subscription(
-    db: AsyncSession, driver_id: str
-) -> Subscription | None:
+async def get_active_subscription(db: AsyncSession, driver_id: str) -> Subscription | None:
     result = await db.execute(
         select(Subscription).where(
             and_(
@@ -112,9 +110,7 @@ async def cancel_subscription(
         select(Subscription).where(
             and_(
                 Subscription.driver_id == driver_id,
-                Subscription.status.in_(
-                    [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED]
-                ),
+                Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED]),
             )
         )
     )

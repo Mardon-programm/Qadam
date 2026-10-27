@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.core.enums import UserRole
-from app.core.exceptions import NotFoundError
 from app.modules.support import service
 from app.modules.support.schemas import ResolveIn, SupportCaseIn, SupportCaseOut
 
