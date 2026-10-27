@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.core.enums import DriverOnlineStatus, UserRole, VerificationStatus
@@ -73,19 +74,26 @@ async def add_vehicle(
     user: CurrentUser,
 ) -> VehicleOut:
     profile = await service.get_or_create_driver_profile(db, user.id)
+    plate_number = body.plate_number.upper().replace(" ", "")
+    existing = await db.execute(select(Vehicle).where(Vehicle.plate_number == plate_number))
+    if existing.scalar_one_or_none():
+        raise ConflictError("Vehicle with this plate number is already registered")
     vehicle = Vehicle(
         driver_id=profile.id,
         make=body.make,
         model=body.model,
         color=body.color,
-        plate_number=body.plate_number.upper().replace(" ", ""),
+        plate_number=plate_number,
         year=body.year,
         seats=body.seats,
         vehicle_class=body.vehicle_class,
         status=VerificationStatus.PENDING,
     )
     db.add(vehicle)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise ConflictError("Vehicle with this plate number is already registered") from exc
     # Auto-set as active vehicle if driver has none
     if not profile.active_vehicle_id:
         profile.active_vehicle_id = vehicle.id
