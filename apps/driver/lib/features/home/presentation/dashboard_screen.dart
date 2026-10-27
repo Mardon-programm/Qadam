@@ -21,6 +21,10 @@ final _activeRideProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   return ref.read(driverApiProvider).getActiveRide();
 });
 
+final _walletProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.read(driverApiProvider).getWalletBalance();
+});
+
 final _onlineProvider = StateProvider<bool>((ref) => false);
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -43,6 +47,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       if (!mounted) return;
       ref.invalidate(_offersProvider);
       ref.invalidate(_activeRideProvider);
+      ref.invalidate(_walletProvider);
     });
   }
 
@@ -379,9 +384,7 @@ class _EarningsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final walletAsync = FutureProvider<Map<String, dynamic>>((ref) async {
-      return ref.read(driverApiProvider).getWalletBalance();
-    });
+    final walletAsync = ref.watch(_walletProvider);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -410,7 +413,10 @@ class _EarningsCard extends ConsumerWidget {
                   style: const TextStyle(
                       color: AppTheme.textSecondary, fontSize: 13)),
               Text(
-                '— ${l10n.som}',
+                walletAsync.maybeWhen(
+                  data: (wallet) => '${wallet['balance']} ${l10n.som}',
+                  orElse: () => '— ${l10n.som}',
+                ),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: AppTheme.earningsGreen,
                       fontWeight: FontWeight.w700,

@@ -93,6 +93,16 @@ Default city: **Bishkek**. Locales: `ru`, `ky`.
 - **City rides** — no online payment is required to order or accept a ride. The fare is settled between passenger and driver; the ledger records the charge/earning for accounting.
 - **Intercity bookings** — booking confirmation is linked to a payment record. The default provider is `mock`, so a payment can be completed via the dev webhook/mock endpoint until a real provider (MBank, Optima, etc.) is connected.
 
+## Deploying the backend to Render
+
+The container entrypoint (`backend/start.sh`) runs `alembic upgrade head` before starting uvicorn, so the schema is created on deploy. The service still needs these environment variables:
+
+- `DATABASE_URL` — the **Internal Database URL** of a Render Postgres instance. Plain `postgres://` / `postgresql://` URLs are converted to the asyncpg driver automatically. Without it the API falls back to `localhost` and OTP verification returns HTTP 500.
+- `REDIS_URL` — Render Key Value / Redis internal URL (OTP codes are stored there).
+- `APP_ENV=production`, `SECRET_KEY`, `SMS_PROVIDER`, etc.
+
+After changing environment variables, trigger a deploy and check the logs for `[start] migrations applied`.
+
 ## SMS and OTP in development
 
 The SMS provider is `console` by default, so login codes are printed to the backend log. While the API runs with `app_env=development` the OTP endpoint also returns `debug_code`; the mobile apps show that code on the verification screen and pre-fill it. Set a real SMS provider and a production `app_env` before launch.

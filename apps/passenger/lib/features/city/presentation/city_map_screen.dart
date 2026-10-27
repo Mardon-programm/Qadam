@@ -304,18 +304,23 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
 
           // Bottom sheet with route info
           if (_showQuote && _pickup != null && _dropoff != null)
-            _RouteBottomSheet(
-              pickupAddress: _pickupAddress,
-              dropoffAddress: _dropoffAddress,
-              onOrder: _orderRide,
-              onChangePoints: () {
-                setState(() {
-                  _dropoff = null;
-                  _dropoffAddress = l10n.whereTo;
-                  _polygonPoints.clear();
-                  _showQuote = false;
-                });
-              },
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _RouteBottomSheet(
+                pickupAddress: _pickupAddress,
+                dropoffAddress: _dropoffAddress,
+                onOrder: _orderRide,
+                onChangePoints: () {
+                  setState(() {
+                    _dropoff = null;
+                    _dropoffAddress = l10n.whereTo;
+                    _polygonPoints.clear();
+                    _showQuote = false;
+                  });
+                },
+              ),
             ),
 
           // Recenter button
