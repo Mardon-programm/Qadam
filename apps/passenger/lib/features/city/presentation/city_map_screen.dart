@@ -37,6 +37,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   bool _showQuote = false;
 
   StreamSubscription<Position>? _positionStream;
+  DateTime _lastQuoteAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -124,29 +125,56 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     _updateRoute();
   }
 
-  void _updateRoute() {
+  Future<void> _updateRoute() async {
     if (_pickup != null && _dropoff != null) {
-      // Simple straight-line route with road factor (no OSRM)
+      // Visual line only; real distance/price come from the backend (OSRM).
       final start = _pickup!;
       final end = _dropoff!;
-      // Generate intermediate points for a smooth curve
       final points = <LatLng>[];
-      final steps = 20;
+      const steps = 20;
       for (var i = 0; i <= steps; i++) {
         final t = i / steps;
-        // Slight curve for visual effect
         final lat = start.latitude + (end.latitude - start.latitude) * t;
         final lng = start.longitude + (end.longitude - start.longitude) * t;
         points.add(LatLng(lat, lng));
       }
-      setState(() => _polygonPoints.clear());
-      setState(() => _polygonPoints.addAll(points));
-      setState(() => _showQuote = true);
+      setState(() {
+        _polygonPoints
+          ..clear()
+          ..addAll(points);
+        _showQuote = true;
+      });
+
+      // The bottom sheet reads the quote from this provider; without this
+      // request it would spin forever and the order button never appears.
+      final now = DateTime.now();
+      if (now.difference(_lastQuoteAt) < const Duration(seconds: 8)) return;
+      _lastQuoteAt = now;
+      ref.read(quoteProvider.notifier).state = null;
+      try {
+        await ref.read(cityRideNotifierProvider.notifier).quote(
+              pickupAddress: _pickupAddress,
+              pickupLat: start.latitude,
+              pickupLng: start.longitude,
+              dropoffAddress: _dropoffAddress,
+              dropoffLat: end.latitude,
+              dropoffLng: end.longitude,
+            );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не удалось рассчитать стоимость: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
     } else {
       setState(() {
         _polygonPoints.clear();
         _showQuote = false;
       });
+      ref.read(quoteProvider.notifier).state = null;
     }
   }
 
