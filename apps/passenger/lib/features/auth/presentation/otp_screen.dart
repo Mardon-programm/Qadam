@@ -11,8 +11,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_button.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone});
+  const OtpScreen({super.key, required this.phone, this.debugCode});
   final String phone;
+  /// Present only while the backend runs with the console SMS provider.
+  final String? debugCode;
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -30,9 +32,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   void initState() {
     super.initState();
     _startCountdown();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _focusNodes[0].requestFocus(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final code = widget.debugCode;
+      if (code != null && code.length == 6) {
+        for (var i = 0; i < 6; i++) {
+          _controllers[i].text = code[i];
+        }
+      }
+      _focusNodes[code != null && code.length == 6 ? 5 : 0].requestFocus();
+    });
   }
 
   void _startCountdown() {
@@ -108,6 +116,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     : 'Код отправлен на ${widget.phone}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              if (widget.debugCode != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Демо-код: ${widget.debugCode}',
+                  style: const TextStyle(
+                      color: AppTheme.secondary, fontWeight: FontWeight.w600),
+                ),
+              ],
               const SizedBox(height: 40),
               // 6 digit boxes
               Row(

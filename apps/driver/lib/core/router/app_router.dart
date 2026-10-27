@@ -37,7 +37,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/otp',
-        builder: (_, state) => OtpScreen(phone: state.extra as String),
+        builder: (_, state) {
+          final extra = state.extra;
+          if (extra is Map) {
+            return OtpScreen(
+              phone: extra['phone'] as String,
+              debugCode: extra['code'] as String?,
+            );
+          }
+          return OtpScreen(phone: extra as String);
+        },
       ),
       ShellRoute(
         builder: (_, __, child) => HomeShell(child: child),

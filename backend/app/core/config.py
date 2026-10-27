@@ -62,6 +62,16 @@ class Settings(BaseSettings):
     def is_dev(self) -> bool:
         return self.app_env in {"development", "dev", "local", "test"}
 
+    @field_validator("database_url")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Render/Heroku hand out postgres:// URLs; asyncpg needs a driver."""
+        if value.startswith("postgres://"):
+            return "postgresql+asyncpg://" + value[len("postgres://") :]
+        if value.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + value[len("postgresql://") :]
+        return value
+
     @field_validator("secret_key")
     @classmethod
     def warn_weak_secret(cls, value: str) -> str:

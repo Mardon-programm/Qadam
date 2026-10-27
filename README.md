@@ -92,3 +92,7 @@ Default city: **Bishkek**. Locales: `ru`, `ky`.
 
 - **City rides** — no online payment is required to order or accept a ride. The fare is settled between passenger and driver; the ledger records the charge/earning for accounting.
 - **Intercity bookings** — booking confirmation is linked to a payment record. The default provider is `mock`, so a payment can be completed via the dev webhook/mock endpoint until a real provider (MBank, Optima, etc.) is connected.
+
+## SMS and OTP in development
+
+The SMS provider is `console` by default, so login codes are printed to the backend log. While the API runs with `app_env=development` the OTP endpoint also returns `debug_code`; the mobile apps show that code on the verification screen and pre-fill it. Set a real SMS provider and a production `app_env` before launch.

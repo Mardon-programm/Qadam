@@ -10,10 +10,12 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY start.sh ./
+RUN chmod +x start.sh
 
 RUN pip install --no-cache-dir -U pip uv \
     && uv pip install --system -e ".[dev]"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start.sh"]

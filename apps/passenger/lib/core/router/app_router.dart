@@ -41,8 +41,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/otp',
         builder: (_, state) {
-          final phone = state.extra as String;
-          return OtpScreen(phone: phone);
+          final extra = state.extra;
+          if (extra is Map) {
+            return OtpScreen(
+              phone: extra['phone'] as String,
+              debugCode: extra['code'] as String?,
+            );
+          }
+          return OtpScreen(phone: extra as String);
         },
       ),
 

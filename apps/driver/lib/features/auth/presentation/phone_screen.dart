@@ -22,8 +22,14 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final api = ref.read(driverApiProvider);
-      await api.requestOtp(_ctrl.text.trim());
-      if (mounted) context.push('/auth/otp', extra: _ctrl.text.trim());
+      final data = await api.requestOtp(_ctrl.text.trim());
+      final debugCode = data['debug_code'] as String?;
+      if (mounted) {
+        context.push(
+          '/auth/otp',
+          extra: {'phone': _ctrl.text.trim(), 'code': debugCode},
+        );
+      }
     } catch (_) {
       setState(() => _error = AppLocalizations.of(context).codeSendFailed);
     } finally {
