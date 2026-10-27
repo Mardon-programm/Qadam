@@ -28,7 +28,14 @@ void main() async {
     ),
   );
 
-  runApp(const ProviderScope(child: QadamPassengerApp()));
+  final localeConfig = await loadLocaleConfig();
+
+  runApp(
+    ProviderScope(
+      overrides: [localeConfigProvider.overrideWithValue(localeConfig)],
+      child: const QadamPassengerApp(),
+    ),
+  );
 }
 
 class QadamPassengerApp extends ConsumerWidget {
