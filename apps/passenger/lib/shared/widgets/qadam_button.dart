@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'qadam_ui.dart';
+
+/// Backwards-compatible wrapper around [QadamActionButton].
+///
+/// Kept so existing screens can keep using the short `QadamButton` API while
+/// the whole app shares one branded button.
 class QadamButton extends StatelessWidget {
   const QadamButton({
     super.key,
@@ -18,40 +24,19 @@ class QadamButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = isLoading
-        ? const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 18),
-                const SizedBox(width: 8),
-              ],
-              Text(label),
-            ],
-          );
-
-    return switch (variant) {
-      QadamButtonVariant.primary => ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
-          child: child,
-        ),
-      QadamButtonVariant.outline => OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
-          child: child,
-        ),
-      QadamButtonVariant.text => TextButton(
-          onPressed: isLoading ? null : onPressed,
-          child: child,
-        ),
+    final style = switch (variant) {
+      QadamButtonVariant.primary => QadamButtonStyle.primary,
+      QadamButtonVariant.outline => QadamButtonStyle.ghost,
+      QadamButtonVariant.text => QadamButtonStyle.link,
     };
+    return QadamActionButton(
+      label: label,
+      onTap: onPressed,
+      loading: isLoading,
+      icon: icon,
+      style: style,
+      height: variant == QadamButtonVariant.text ? 44 : 56,
+    );
   }
 }
 

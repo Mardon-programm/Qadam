@@ -6,8 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(driverApiProvider).getProfile();
@@ -119,6 +120,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _stopHeartbeat();
       }
     } catch (e) {
+      HapticFeedback.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$e')),
@@ -129,7 +131,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(_profileProvider);
     final offersAsync = ref.watch(_offersProvider);
     final activeRideAsync = ref.watch(_activeRideProvider);
     final isOnline = ref.watch(_onlineProvider);
@@ -138,96 +139,95 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surface,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // App bar
-            SliverAppBar(
-              floating: true,
-              backgroundColor: AppTheme.surface,
-              title: Row(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(_profileProvider);
+            ref.invalidate(_offersProvider);
+            ref.invalidate(_activeRideProvider);
+            ref.invalidate(_walletProvider);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.local_taxi,
-                        color: Colors.white, size: 20),
+                  const QadamWordmark(size: 20, subtitle: 'DRIVER'),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => context.go('/profile'),
+                    child: const QadamAvatar(size: 44),
                   ),
-                  const SizedBox(width: 10),
-                  Text(l10n.appName),
                 ],
               ),
-            ),
-
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  // Online toggle card
-                  _OnlineCard(
-                    isOnline: isOnline,
-                    onToggle: _toggleOnline,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Today's earnings
-                  _EarningsCard(),
-                  const SizedBox(height: 16),
-
-                  // Accepted ride that is not finished yet
-                  activeRideAsync.maybeWhen(
-                    data: (ride) => ride == null
-                        ? const SizedBox.shrink()
-                        : Column(
-                            children: [
-                              _ActiveRideCard(
-                                ride: ride,
-                                onTap: () => context.push(
-                                    '/dashboard/ride/${ride['id']}'),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                    orElse: () => const SizedBox.shrink(),
-                  ),
-
-                  // Pending offers
-                  Text(l10n.incomingOrders,
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  offersAsync.when(
-                    loading: () => const Center(child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    )),
-                    error: (e, _) =>
-                        Text('${l10n.loadError}: $e',
-                            style: const TextStyle(color: AppTheme.error)),
-                    data: (offers) {
-                      if (offers.isEmpty) {
-                        return _EmptyOffers(isOnline: isOnline);
-                      }
-                      return Column(
-                        children: offers
-                            .map((o) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _OfferCard(
-                                    offer: o as Map<String, dynamic>,
-                                    onTap: () => context.push(
-                                        '/dashboard/offer/${o['ride_order_id']}'),
-                                  ),
-                                ))
-                            .toList(),
-                      );
-                    },
-                  ),
-                ]),
+              const SizedBox(height: 20),
+              _OnlineCard(isOnline: isOnline, onToggle: _toggleOnline),
+              const SizedBox(height: 14),
+              _EarningsCard(),
+              activeRideAsync.maybeWhen(
+                data: (ride) => ride == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: _ActiveRideCard(
+                          ride: ride,
+                          onTap: () =>
+                              context.push('/dashboard/ride/${ride['id']}'),
+                        ),
+                      ),
+                orElse: () => const SizedBox.shrink(),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              QadamSectionLabel(
+                l10n.incomingOrders,
+                trailing: offersAsync.maybeWhen(
+                  data: (offers) => offers.isEmpty
+                      ? const SizedBox.shrink()
+                      : QadamTag(
+                          label: '${offers.length}',
+                          color: AppTheme.primary,
+                        ),
+                  orElse: () => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              offersAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
+                  ),
+                ),
+                error: (e, _) => Text(
+                  '${l10n.loadError}: $e',
+                  style: const TextStyle(color: AppTheme.error),
+                ),
+                data: (offers) {
+                  if (offers.isEmpty) {
+                    return _EmptyOffers(isOnline: isOnline);
+                  }
+                  return Column(
+                    children: offers
+                        .map(
+                          (o) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _OfferCard(
+                              offer: o as Map<String, dynamic>,
+                              onTap: () => context.push(
+                                '/dashboard/offer/${o['ride_order_id']}',
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -242,57 +242,70 @@ class _OnlineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isOnline
-              ? [AppTheme.secondary, const Color(0xFF00A844)]
-              : [AppTheme.textSecondary, const Color(0xFF4B5563)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (isOnline ? AppTheme.secondary : AppTheme.textSecondary)
-                .withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return QadamGradientCard(
+      gradient: isOnline
+          ? AppTheme.brandGradient
+          : const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2A3350), AppTheme.ink],
+            ),
+      padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isOnline ? l10n.youAreOnline : l10n.youAreOffline,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isOnline
+                            ? const Color(0xFF8BFFE4)
+                            : Colors.white.withOpacity(0.45),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isOnline
+                          ? l10n.youAreOnline
+                          : l10n.youAreOffline,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
-                  isOnline
-                      ? l10n.receivingOrders
-                      : l10n.tapToStart,
-                  style:
-                      const TextStyle(color: Colors.white70, fontSize: 13),
+                  isOnline ? l10n.receivingOrders : l10n.tapToStart,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    color: Colors.white.withOpacity(0.78),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
           ),
           Transform.scale(
-            scale: 1.2,
+            scale: 1.15,
             child: Switch(
               value: isOnline,
               onChanged: onToggle,
-              activeColor: Colors.white,
-              activeTrackColor: Colors.white.withOpacity(0.4),
+              activeColor: AppTheme.primary,
+              activeTrackColor: Colors.white,
               inactiveThumbColor: Colors.white,
-              inactiveTrackColor: Colors.white.withOpacity(0.3),
+              inactiveTrackColor: Colors.white.withOpacity(0.25),
             ),
           ),
         ],
@@ -324,57 +337,47 @@ class _ActiveRideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return QadamCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.local_taxi, color: AppTheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_statusLabel(ride['status'] as String?),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary)),
-                  const SizedBox(height: 2),
-                  Text(
-                    ride['dropoff_address']?.toString() ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppTheme.textSecondary),
+      padding: const EdgeInsets.all(16),
+      borderColor: AppTheme.primary.withOpacity(0.35),
+      child: Row(
+        children: [
+          const QadamIconBadge(icon: Icons.local_taxi_rounded, size: 46),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _statusLabel(ride['status'] as String?),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppTheme.textPrimary,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  ride['dropoff_address']?.toString() ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-          ],
-        ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppTheme.textSecondary,
+          ),
+        ],
       ),
     );
   }
@@ -386,48 +389,83 @@ class _EarningsCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final walletAsync = ref.watch(_walletProvider);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.divider),
-      ),
+    return QadamGradientCard(
+      gradient: AppTheme.sunGradient,
+      padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.earningsGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.account_balance_wallet,
-                color: AppTheme.earningsGreen, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.walletBalance,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 13)),
-              Text(
-                walletAsync.maybeWhen(
-                  data: (wallet) => '${wallet['balance']} ${l10n.som}',
-                  orElse: () => '— ${l10n.som}',
-                ),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppTheme.earningsGreen,
-                      fontWeight: FontWeight.w700,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet_rounded,
+                      size: 16,
+                      color: AppTheme.ink.withOpacity(0.65),
                     ),
-              ),
-            ],
+                    const SizedBox(width: 6),
+                    Text(
+                      l10n.walletBalance,
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: AppTheme.ink.withOpacity(0.65),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  walletAsync.maybeWhen(
+                    data: (wallet) => '${wallet['balance']} ${l10n.som}',
+                    orElse: () => '— ${l10n.som}',
+                  ),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 30,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.8,
+                    color: AppTheme.ink,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
-          TextButton(
-            onPressed: () => GoRouter.of(context).go('/wallet'),
-            child: Text(l10n.details),
+          Material(
+            color: Colors.white.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => GoRouter.of(context).go('/wallet'),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Text(
+                      l10n.details,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 15,
+                      color: AppTheme.ink,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -446,64 +484,58 @@ class _OfferCard extends StatelessWidget {
     final net = offer['net_estimate'];
     final eta = offer['eta_min'];
 
-    return GestureDetector(
+    return QadamCard(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: const BoxDecoration(
+              gradient: AppTheme.brandGradient,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person, color: AppTheme.primary),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Colors.white,
+              size: 22,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.newOrder,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  if (eta != null)
-                    Text('${l10n.toPassenger}: ~$eta мин',
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 13)),
-                ],
-              ),
-            ),
-            if (net != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.earningsGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '~$net ${l10n.som}',
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.newOrder,
                   style: const TextStyle(
-                      color: AppTheme.earningsGreen,
-                      fontWeight: FontWeight.w700),
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
-              ),
-          ],
-        ),
+                if (eta != null)
+                  Text(
+                    '${l10n.toPassenger}: ~$eta мин',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (net != null)
+            QadamTag(
+              label: '~$net ${l10n.som}',
+              color: AppTheme.earningsGreen,
+              background: AppTheme.mint,
+            ),
+        ],
       ),
     );
   }
@@ -516,25 +548,28 @@ class _EmptyOffers extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.all(32),
-      alignment: Alignment.center,
+    return QadamCard(
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
       child: Column(
         children: [
-          Icon(
-            isOnline
-                ? Icons.hourglass_empty
-                : Icons.power_settings_new,
-            size: 48,
-            color: AppTheme.textSecondary.withOpacity(0.4),
+          QadamIconBadge(
+            icon: isOnline
+                ? Icons.radar_rounded
+                : Icons.power_settings_new_rounded,
+            color: isOnline ? AppTheme.primary : AppTheme.textSecondary,
+            size: 60,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
-            isOnline
-                ? l10n.waitingOrders
-                : l10n.enableOnline,
+            isOnline ? l10n.waitingOrders : l10n.enableOnline,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.textSecondary),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+              color: AppTheme.textSecondary,
+            ),
           ),
         ],
       ),

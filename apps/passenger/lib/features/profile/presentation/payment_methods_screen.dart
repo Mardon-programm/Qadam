@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_button.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
-final _paymentMethodsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final _paymentMethodsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final api = ref.read(apiServiceProvider);
-  return api.get('/payments/methods')
+  return api
+      .get('/payments/methods')
       .then((r) => List<Map<String, dynamic>>.from(r.data['methods'] ?? []));
 });
 
@@ -16,18 +18,19 @@ class PaymentMethodsScreen extends ConsumerStatefulWidget {
   const PaymentMethodsScreen({super.key});
 
   @override
-  ConsumerState<PaymentMethodsScreen> createState() => _PaymentMethodsScreenState();
+  ConsumerState<PaymentMethodsScreen> createState() =>
+      _PaymentMethodsScreenState();
 }
 
 class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   bool _adding = false;
 
   Future<void> _addCard() async {
-    // In production, this would integrate with a payment provider SDK
-    // For now, show a placeholder dialog
-    final result = await showDialog<Map<String, String>>(
+    final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
-      builder: (ctx) => const _AddCardDialog(),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _AddCardSheet(),
     );
 
     if (result != null && mounted) {
@@ -57,21 +60,65 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   }
 
   Future<void> _removeMethod(String id) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Удалить карту?'),
-        content: const Text('Вы уверены, что хотите удалить этот способ оплаты?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Удалить', style: TextStyle(color: AppTheme.error)),
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => QadamSheet(
+        padding: EdgeInsets.fromLTRB(
+            24, 12, 24, MediaQuery.of(ctx).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.error.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppTheme.error,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Удалить карту?',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Вы уверены, что хотите удалить этот способ оплаты?',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 22),
+            QadamActionButton(
+              label: 'Удалить',
+              onTap: () => Navigator.pop(ctx, true),
+              style: QadamButtonStyle.danger,
+            ),
+            const SizedBox(height: 8),
+            QadamActionButton(
+              label: 'Отмена',
+              onTap: () => Navigator.pop(ctx, false),
+              style: QadamButtonStyle.link,
+              height: 48,
+            ),
+          ],
+        ),
       ),
     );
 
@@ -100,74 +147,140 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     final methodsAsync = ref.watch(_paymentMethodsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Способы оплаты'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: methodsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Ошибка: $e')),
-        data: (methods) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (methods.isEmpty)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 64),
-                    Icon(
-                      Icons.credit_card_outlined,
-                      size: 64,
-                      color: AppTheme.textSecondary.withOpacity(0.4),
+      backgroundColor: AppTheme.surface,
+      body: Column(
+        children: [
+          const QadamBrandHeader(
+            showBack: true,
+            title: 'Способы оплаты',
+            subtitle: 'Карты и наличные для поездок',
+            bottomRadius: 36,
+          ),
+          Expanded(
+            child: methodsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Ошибка: $e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: AppTheme.textSecondary,
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Нет сохраненных карт',
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+                  ),
                 ),
-              )
-            else
-              ...methods.map((method) => _PaymentMethodCard(
-                method: method,
-                onRemove: () => _removeMethod(method['id']),
-              )),
-            const SizedBox(height: 16),
-            QadamButton(
-              label: 'Добавить карту',
-              icon: Icons.add,
-              variant: QadamButtonVariant.outline,
-              isLoading: _adding,
-              onPressed: _addCard,
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              data: (methods) => ListView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
-                  Icon(Icons.security, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Все данные карт защищены и шифруются. Мы не храним полные номера карт.',
-                      style: TextStyle(color: AppTheme.primary, fontSize: 13),
+                  Transform.translate(
+                    offset: const Offset(0, -26),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (methods.isEmpty)
+                          const _EmptyCards()
+                        else
+                          ...methods.map(
+                            (method) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _PaymentMethodCard(
+                                method: method,
+                                onRemove: () {
+                                  final id = method['id'];
+                                  if (id != null) _removeMethod('$id');
+                                },
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        QadamActionButton(
+                          label: 'Добавить карту',
+                          icon: Icons.add_card_rounded,
+                          onTap: _addCard,
+                          loading: _adding,
+                        ),
+                        const SizedBox(height: 18),
+                        QadamCard(
+                          padding: const EdgeInsets.all(16),
+                          color: AppTheme.lavender,
+                          borderColor: Colors.transparent,
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.lock_rounded,
+                                color: AppTheme.primary,
+                                size: 20,
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Данные карт защищены и шифруются. Мы не храним полные номера карт.',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: AppTheme.primary,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCards extends StatelessWidget {
+  const _EmptyCards();
+
+  @override
+  Widget build(BuildContext context) {
+    return QadamCard(
+      radius: 28,
+      padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 24),
+      child: Column(
+        children: [
+          QadamIconBadge(
+            icon: Icons.credit_card_off_rounded,
+            color: AppTheme.primary,
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Нет сохранённых карт',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'В городе можно платить наличными водителю — карта нужна для межгорода',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -188,70 +301,76 @@ class _PaymentMethodCard extends StatelessWidget {
     final brand = method['brand'] ?? 'card';
     final isDefault = method['is_default'] ?? false;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDefault ? AppTheme.primary : AppTheme.divider,
-          width: isDefault ? 2 : 1,
-        ),
-      ),
+    return QadamGradientCard(
+      gradient: AppTheme.deepGradient,
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.credit_card, color: AppTheme.primary, size: 24),
+            child: const Icon(
+              Icons.credit_card_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(
-                      '$brand •••• $last4',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Flexible(
+                      child: Text(
+                        '$brand •••• $last4',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                     if (isDefault) ...[
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Основная',
-                          style: TextStyle(
-                            color: AppTheme.secondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      const QadamTag(
+                        label: 'Основная',
+                        color: Color(0xFF8BFFE4),
+                        background: Color(0x1F8BFFE4),
                       ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   method['expires'] ?? '',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 22),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white.withValues(alpha: 0.7),
+              size: 22,
+            ),
           ),
         ],
       ),
@@ -259,14 +378,14 @@ class _PaymentMethodCard extends StatelessWidget {
   }
 }
 
-class _AddCardDialog extends StatefulWidget {
-  const _AddCardDialog();
+class _AddCardSheet extends StatefulWidget {
+  const _AddCardSheet();
 
   @override
-  State<_AddCardDialog> createState() => _AddCardDialogState();
+  State<_AddCardSheet> createState() => _AddCardSheetState();
 }
 
-class _AddCardDialogState extends State<_AddCardDialog> {
+class _AddCardSheetState extends State<_AddCardSheet> {
   final _cardController = TextEditingController();
   final _expiryController = TextEditingController();
   final _cvvController = TextEditingController();
@@ -281,71 +400,124 @@ class _AddCardDialogState extends State<_AddCardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Добавить карту'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _cardController,
-            decoration: const InputDecoration(
-              labelText: 'Номер карты',
-              hintText: '1234 5678 9012 3456',
-            ),
-            keyboardType: TextInputType.number,
-            maxLength: 19,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _expiryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Срок',
-                    hintText: 'MM/YY',
-                  ),
-                  keyboardType: TextInputType.number,
-                  maxLength: 5,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _cvvController,
-                  decoration: const InputDecoration(
-                    labelText: 'CVV',
-                    hintText: '123',
-                  ),
-                  keyboardType: TextInputType.number,
-                  maxLength: 3,
-                  obscureText: true,
-                ),
-              ),
-            ],
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+      child: QadamSheet(
+        padding: EdgeInsets.fromLTRB(
+            24, 12, 24, MediaQuery.of(context).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Добавить карту',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Данные передаются в зашифрованном виде',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _cardController,
+              keyboardType: TextInputType.number,
+              maxLength: 19,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+              ],
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 17,
+                letterSpacing: 1.4,
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Номер карты',
+                hintText: '1234 5678 9012 3456',
+                counterText: '',
+                prefixIcon: Icon(Icons.credit_card_rounded),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _expiryController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Срок',
+                      hintText: 'MM/YY',
+                      counterText: '',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _cvvController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 3,
+                    obscureText: true,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'CVV',
+                      hintText: '123',
+                      counterText: '',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            QadamActionButton(
+              label: 'Добавить',
+              icon: Icons.check_rounded,
+              onTap: () {
+                if (_cardController.text.isNotEmpty &&
+                    _expiryController.text.isNotEmpty &&
+                    _cvvController.text.isNotEmpty) {
+                  Navigator.pop(context, {
+                    'card_number': _cardController.text,
+                    'expiry': _expiryController.text,
+                    'cvv': _cvvController.text,
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            QadamActionButton(
+              label: 'Отмена',
+              style: QadamButtonStyle.link,
+              height: 44,
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
         ),
-        TextButton(
-          onPressed: () {
-            if (_cardController.text.isNotEmpty &&
-                _expiryController.text.isNotEmpty &&
-                _cvvController.text.isNotEmpty) {
-              Navigator.pop(context, {
-                'card_number': _cardController.text,
-                'expiry': _expiryController.text,
-                'cvv': _cvvController.text,
-              });
-            }
-          },
-          child: const Text('Добавить'),
-        ),
-      ],
+      ),
     );
   }
 }

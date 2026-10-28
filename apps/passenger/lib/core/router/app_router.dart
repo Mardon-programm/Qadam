@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,7 +6,6 @@ import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/city/presentation/city_map_screen.dart';
 import '../../features/city/presentation/ride_tracking_screen.dart';
-import '../../features/city/presentation/ride_quote_sheet.dart';
 import '../../features/region/presentation/region_search_screen.dart';
 import '../../features/region/presentation/trip_list_screen.dart';
 import '../../features/region/presentation/trip_details_screen.dart';
@@ -18,7 +16,7 @@ import '../../features/support/presentation/new_case_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/presentation/payment_methods_screen.dart';
 import '../../features/onboarding/presentation/language_selection_screen.dart';
-import '../storage/auth_storage.dart';
+import '../api/api_client.dart';
 import '../providers/locale_provider.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -27,6 +25,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: isFirstLaunch ? '/language' : '/auth/phone',
+    redirect: (context, state) async {
+      final token = await readAccessToken();
+      final hasToken = token != null && token.isNotEmpty;
+      final location = state.matchedLocation;
+      final inAuth = location.startsWith('/auth') || location == '/language';
+      if (!hasToken && !inAuth) return '/auth/phone';
+      if (hasToken && location.startsWith('/auth')) return '/home';
+      return null;
+    },
     routes: [
       // Language selection (first launch)
       GoRoute(

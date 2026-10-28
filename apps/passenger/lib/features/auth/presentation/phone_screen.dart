@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_button.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -20,7 +20,10 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   String? _error;
 
   Future<void> _sendOtp() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final api = ref.read(apiServiceProvider);
       final data = await api.requestOtp(_controller.text.trim());
@@ -37,86 +40,88 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = l10n.locale;
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 48),
-              // Logo
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.directions_car,
-                        color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(l10n.appName,
-                      style: Theme.of(context).textTheme.headlineMedium),
-                ],
-              ),
-              const SizedBox(height: 48),
-              Text(
-                l10n.enterPhone,
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                locale.languageCode == 'ky'
-                    ? 'SMS код жөнөтөбүз'
-                    : 'Мы отправим SMS с кодом подтверждения',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _controller,
-                keyboardType: TextInputType.phone,
-                autofocus: true,
-                style: Theme.of(context).textTheme.titleLarge,
-                decoration: InputDecoration(
-                  hintText: l10n.phonePlaceholder,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('🇰🇬', style: TextStyle(fontSize: 20)),
-                  ),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 0, minHeight: 0),
-                  errorText: _error,
-                ),
-              ),
-              const SizedBox(height: 24),
-              QadamButton(
-                label: l10n.sendCode,
-                isLoading: _loading,
-                onPressed: _sendOtp,
-              ),
-              const Spacer(),
-              Center(
-                child: Text(
-                  locale.languageCode == 'ky'
-                      ? '«Уланту» басуу менен Qadam колдонуу шарттарын кабыл аласыз'
-                      : 'Нажимая «Продолжить», вы принимаете условия использования Qadam',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          QadamBrandHeader(
+            title: l10n.enterPhone,
+            subtitle: locale.languageCode == 'ky'
+                ? 'SMS код жөнөтөбүз'
+                : 'Мы отправим SMS с кодом подтверждения',
+            bottomRadius: 36,
           ),
-        ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Transform.translate(
+                offset: const Offset(0, -26),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: AppTheme.floatShadow,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _controller,
+                        keyboardType: TextInputType.phone,
+                        autofocus: true,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: AppTheme.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: l10n.phonePlaceholder,
+                          prefixIcon: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14),
+                            child: Text('🇰🇬', style: TextStyle(fontSize: 22)),
+                          ),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 0, minHeight: 0),
+                          errorText: _error,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      QadamActionButton(
+                        label: l10n.sendCode,
+                        onTap: _sendOtp,
+                        loading: _loading,
+                        icon: Icons.arrow_forward_rounded,
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        locale.languageCode == 'ky'
+                            ? '«Уланту» басуу менен Qadam колдонуу шарттарын кабыл аласыз'
+                            : 'Нажимая «Продолжить», вы принимаете условия использования Qadam',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

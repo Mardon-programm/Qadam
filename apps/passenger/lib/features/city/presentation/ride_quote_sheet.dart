@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_button.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
 
 class RideQuoteSheet extends ConsumerStatefulWidget {
@@ -35,10 +35,12 @@ class _RideQuoteSheetState extends ConsumerState<RideQuoteSheet> {
   Future<void> _fetchQuote() async {
     final notifier = ref.read(cityRideNotifierProvider.notifier);
     await notifier.quote(
-      pickupAddress: '${widget.pickup.latitude.toStringAsFixed(4)}, ${widget.pickup.longitude.toStringAsFixed(4)}',
+      pickupAddress:
+          '${widget.pickup.latitude.toStringAsFixed(4)}, ${widget.pickup.longitude.toStringAsFixed(4)}',
       pickupLat: widget.pickup.latitude,
       pickupLng: widget.pickup.longitude,
-      dropoffAddress: '${widget.dropoff.latitude.toStringAsFixed(4)}, ${widget.dropoff.longitude.toStringAsFixed(4)}',
+      dropoffAddress:
+          '${widget.dropoff.latitude.toStringAsFixed(4)}, ${widget.dropoff.longitude.toStringAsFixed(4)}',
       dropoffLat: widget.dropoff.latitude,
       dropoffLng: widget.dropoff.longitude,
     );
@@ -50,10 +52,12 @@ class _RideQuoteSheetState extends ConsumerState<RideQuoteSheet> {
     try {
       final notifier = ref.read(cityRideNotifierProvider.notifier);
       final ride = await notifier.createRide(
-        pickupAddress: '${widget.pickup.latitude.toStringAsFixed(4)}, ${widget.pickup.longitude.toStringAsFixed(4)}',
+        pickupAddress:
+            '${widget.pickup.latitude.toStringAsFixed(4)}, ${widget.pickup.longitude.toStringAsFixed(4)}',
         pickupLat: widget.pickup.latitude,
         pickupLng: widget.pickup.longitude,
-        dropoffAddress: '${widget.dropoff.latitude.toStringAsFixed(4)}, ${widget.dropoff.longitude.toStringAsFixed(4)}',
+        dropoffAddress:
+            '${widget.dropoff.latitude.toStringAsFixed(4)}, ${widget.dropoff.longitude.toStringAsFixed(4)}',
         dropoffLat: widget.dropoff.latitude,
         dropoffLng: widget.dropoff.longitude,
       );
@@ -76,102 +80,142 @@ class _RideQuoteSheetState extends ConsumerState<RideQuoteSheet> {
   Widget build(BuildContext context) {
     final quote = ref.watch(quoteProvider);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return QadamSheet(
       padding: EdgeInsets.fromLTRB(
-          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+          24, 12, 24, MediaQuery.of(context).padding.bottom + 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
+          Row(
+            children: [
+              const QadamIconBadge(
+                icon: Icons.local_taxi_rounded,
+                size: 46,
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Qadam City',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Ближайший водитель · ~5 мин',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const QadamTag(
+                label: 'сом',
+                color: AppTheme.secondary,
+                icon: Icons.payments_rounded,
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          if (!_quoteFetched)
-            const Center(child: CircularProgressIndicator())
-          else if (quote == null)
-            const Text('Не удалось получить цену')
+          const SizedBox(height: 18),
+          if (!_quoteFetched || quote == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+              ),
+            )
           else ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Стоимость поездки',
-                          style: TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 13)),
+                      const Text(
+                        'СТОИМОСТЬ ПОЕЗДКИ',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         '${quote.quotedPrice.toStringAsFixed(0)} сом',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.2,
+                          height: 1.05,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _InfoChip(
-                        icon: Icons.route,
-                        label: '${quote.distanceKm.toStringAsFixed(1)} км'),
-                    const SizedBox(height: 4),
-                    _InfoChip(
-                        icon: Icons.timer,
-                        label: '~${quote.durationMin.toStringAsFixed(0)} мин'),
-                  ],
+                const QadamTag(
+                  label: 'Далее',
+                  icon: Icons.route_rounded,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _Chip(
+                  icon: Icons.route_rounded,
+                  label: '${quote.distanceKm.toStringAsFixed(1)} км',
+                ),
+                const SizedBox(width: 8),
+                _Chip(
+                  icon: Icons.schedule_rounded,
+                  label: '~${quote.durationMin.toStringAsFixed(0)} мин',
                 ),
               ],
             ),
             if (quote.surgeMultiplier > 1.0) ...[
               const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.flash_on,
-                        color: AppTheme.warning, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
+              Align(
+                alignment: Alignment.centerLeft,
+                child: QadamTag(
+                  label:
                       'Повышенный спрос ×${quote.surgeMultiplier.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                          color: AppTheme.warning,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ],
+                  color: AppTheme.warning,
+                  icon: Icons.bolt_rounded,
                 ),
               ),
             ],
-            const SizedBox(height: 24),
-            QadamButton(
+            const SizedBox(height: 22),
+            QadamActionButton(
               label: 'Заказать',
-              isLoading: _booking,
-              onPressed: _confirm,
-              icon: Icons.directions_car,
+              loading: _booking,
+              onTap: _confirm,
+              icon: Icons.arrow_forward_rounded,
             ),
-            const SizedBox(height: 12),
-            QadamButton(
+            const SizedBox(height: 6),
+            QadamActionButton(
               label: 'Отмена',
-              variant: QadamButtonVariant.text,
-              onPressed: () => Navigator.of(context).pop(),
+              style: QadamButtonStyle.link,
+              height: 44,
+              onTap: () => Navigator.of(context).pop(),
             ),
           ],
         ],
@@ -180,22 +224,35 @@ class _RideQuoteSheetState extends ConsumerState<RideQuoteSheet> {
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.label});
   final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondary),
-        const SizedBox(width: 4),
-        Text(label,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppTheme.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
             style: const TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary)),
-      ],
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

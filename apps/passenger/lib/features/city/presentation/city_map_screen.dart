@@ -8,10 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_button.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
 
 // Default centre: Bishkek
@@ -76,7 +75,8 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
       if (mounted) {
         setState(() {
           _pickup = pos;
-          _pickupAddress = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+          _pickupAddress =
+              '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
           _loadingLocation = false;
         });
         _mapController.move(pos, 15);
@@ -112,14 +112,17 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     setState(() {
       if (_pickup == null) {
         _pickup = point;
-        _pickupAddress = '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+        _pickupAddress =
+            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
       } else if (_dropoff == null) {
         _dropoff = point;
-        _dropoffAddress = '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+        _dropoffAddress =
+            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
       } else {
         // Both set — tapping again resets dropoff
         _dropoff = point;
-        _dropoffAddress = '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+        _dropoffAddress =
+            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
       }
     });
     _updateRoute();
@@ -196,10 +199,23 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка заказа: $e'), backgroundColor: AppTheme.error),
+          SnackBar(
+            content: Text('Ошибка заказа: $e'),
+            backgroundColor: AppTheme.error,
+          ),
         );
       }
     }
+  }
+
+  void _resetRoute() {
+    setState(() {
+      _dropoff = null;
+      _dropoffAddress = '';
+      _polygonPoints.clear();
+      _showQuote = false;
+    });
+    ref.read(quoteProvider.notifier).state = null;
   }
 
   List<Marker> _buildMarkers() {
@@ -208,15 +224,26 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
       markers.add(
         Marker(
           point: _pickup!,
-          width: 40,
-          height: 40,
+          width: 44,
+          height: 44,
           child: Container(
             decoration: BoxDecoration(
-              color: AppTheme.primary,
+              color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: AppTheme.floatShadow,
             ),
-            child: const Icon(Icons.my_location, color: Colors.white, size: 24),
+            padding: const EdgeInsets.all(4),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: AppTheme.brandGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.my_location,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
           ),
         ),
       );
@@ -225,15 +252,20 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
       markers.add(
         Marker(
           point: _dropoff!,
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           child: Container(
             decoration: BoxDecoration(
-              color: AppTheme.error,
+              color: AppTheme.ink,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: AppTheme.floatShadow,
             ),
-            child: const Icon(Icons.location_on, color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.flag_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
         ),
       );
@@ -246,61 +278,170 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
+      backgroundColor: AppTheme.surface,
       body: Stack(
         children: [
-          // Map
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _pickup ?? _bishkek,
-              initialZoom: 14,
-              onTap: _onMapTap,
+          // Map, desaturated a little so the brand overlays read clearly.
+          ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              0.86, 0.08, 0.06, 0, 6,
+              0.06, 0.88, 0.06, 0, 6,
+              0.06, 0.08, 0.86, 0, 6,
+              0, 0, 0, 1, 0,
+            ]),
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _pickup ?? _bishkek,
+                initialZoom: 14,
+                onTap: _onMapTap,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'kg.qadam.passenger',
+                ),
+                PolylineLayer(
+                  polylines: [
+                    if (_polygonPoints.isNotEmpty)
+                      Polyline(
+                        points: _polygonPoints,
+                        color: AppTheme.primary,
+                        strokeWidth: 5,
+                        borderColor: Colors.white,
+                        borderStrokeWidth: 2,
+                      ),
+                  ],
+                ),
+                MarkerLayer(markers: _buildMarkers()),
+              ],
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'kg.qadam.passenger',
-              ),
-              PolylineLayer(
-                polylines: [
-                  if (_polygonPoints.isNotEmpty)
-                    Polyline(
-                      points: _polygonPoints,
-                      color: AppTheme.primary,
-                      strokeWidth: 4,
-                    ),
-                ],
-              ),
-              MarkerLayer(
-                markers: _buildMarkers(),
-              ),
-            ],
           ),
 
           // Location loading / error
           if (_loadingLocation)
-            const Center(child: CircularProgressIndicator())
+            const Center(
+              child: QadamCard(
+                padding: EdgeInsets.all(24),
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.6),
+                ),
+              ),
+            )
           else if (_locationError != null)
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, color: AppTheme.error, size: 48),
-                    const SizedBox(height: 8),
-                    Text(_locationError!,
+                padding: const EdgeInsets.all(24),
+                child: QadamCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const QadamIconBadge(
+                        icon: Icons.location_off_rounded,
+                        color: AppTheme.error,
+                        size: 56,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _locationError!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppTheme.error)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _initLocation,
-                      child: Text(l10n.retry),
-                    ),
-                  ],
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      QadamActionButton(
+                        label: l10n.retry,
+                        onTap: _initLocation,
+                        style: QadamButtonStyle.soft,
+                        height: 48,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+
+          // Route card
+          Positioned(
+            left: 16,
+            right: 16,
+            top: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: QadamCard(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                  radius: 22,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              gradient: AppTheme.brandGradient,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Container(
+                            width: 2,
+                            height: 26,
+                            color: AppTheme.divider,
+                          ),
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.ink,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _RouteLine(
+                              label: l10n.pickupPoint,
+                              value: _pickupAddress.isEmpty
+                                  ? '—'
+                                  : _pickupAddress,
+                            ),
+                            const SizedBox(height: 14),
+                            _RouteLine(
+                              label: l10n.destination,
+                              value: _dropoff == null
+                                  ? 'Нажмите на карту'
+                                  : _dropoffAddress,
+                              muted: _dropoff == null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_dropoff != null)
+                        IconButton(
+                          onPressed: _resetRoute,
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          color: AppTheme.textSecondary,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           // Bottom sheet with route info
           if (_showQuote && _pickup != null && _dropoff != null)
@@ -312,33 +453,87 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                 pickupAddress: _pickupAddress,
                 dropoffAddress: _dropoffAddress,
                 onOrder: _orderRide,
-                onChangePoints: () {
-                  setState(() {
-                    _dropoff = null;
-                    _dropoffAddress = l10n.whereTo;
-                    _polygonPoints.clear();
-                    _showQuote = false;
-                  });
-                },
+                onChangePoints: _resetRoute,
               ),
             ),
 
           // Recenter button
           Positioned(
-            bottom: _showQuote ? 200 : 16,
+            bottom: _showQuote ? 320 : 24,
             right: 16,
-            child: FloatingActionButton.small(
-              onPressed: () {
-                if (_pickup != null) {
-                  _mapController.move(_pickup!, 15);
-                }
-              },
-              child: const Icon(Icons.my_location, size: 20),
-              backgroundColor: Colors.white,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 0,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  if (_pickup != null) {
+                    _mapController.move(_pickup!, 15);
+                  }
+                },
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: AppTheme.floatShadow,
+                  ),
+                  child: const Icon(
+                    Icons.my_location_rounded,
+                    size: 20,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RouteLine extends StatelessWidget {
+  const _RouteLine({
+    required this.label,
+    required this.value,
+    this.muted = false,
+  });
+
+  final String label;
+  final String value;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -361,180 +556,188 @@ class _RouteBottomSheet extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final quoteAsync = ref.watch(quoteProvider);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
+    return QadamSheet(
       padding: EdgeInsets.fromLTRB(
-          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+        24,
+        12,
+        24,
+        MediaQuery.of(context).padding.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
           Row(
             children: [
-              const Icon(Icons.my_location, color: AppTheme.primary, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.lavender,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.local_taxi_rounded,
+                  color: AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l10n.pickupPoint,
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12)),
-                    Text(pickupAddress,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge),
+                    Text(
+                      'Qadam City',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Ближайший водитель · ~5 мин',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (_pickupChangeButton(context)) ...[],
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.location_on, color: AppTheme.error, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.destination,
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 12)),
-                    Text(dropoffAddress,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge),
-                  ],
-                ),
+              QadamTag(
+                label: l10n.som,
+                color: AppTheme.secondary,
+                icon: Icons.payments_rounded,
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           if (quoteAsync == null)
-            const Center(child: CircularProgressIndicator())
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+              ),
+            )
           else ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l10n.rideCost,
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 13)),
+                      Text(
+                        l10n.rideCost.toUpperCase(),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
-                        '${quoteAsync!.quotedPrice.toStringAsFixed(0)} ${l10n.som}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        '${quoteAsync.quotedPrice.toStringAsFixed(0)} ${l10n.som}',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.2,
+                          height: 1.05,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                Row(
                   children: [
-                    _InfoChip(
-                        icon: Icons.route,
-                        label: '${quoteAsync.distanceKm.toStringAsFixed(1)} км'),
-                    const SizedBox(height: 4),
-                    _InfoChip(
-                        icon: Icons.timer,
-                        label: '~${quoteAsync.durationMin.toStringAsFixed(0)} мин'),
+                    _MetricPill(
+                      icon: Icons.route_rounded,
+                      value: '${quoteAsync.distanceKm.toStringAsFixed(1)} км',
+                    ),
+                    const SizedBox(width: 8),
+                    _MetricPill(
+                      icon: Icons.schedule_rounded,
+                      value: '~${quoteAsync.durationMin.toStringAsFixed(0)} мин',
+                    ),
                   ],
                 ),
               ],
             ),
             if (quoteAsync.surgeMultiplier > 1.0) ...[
               const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.flash_on,
-                        color: AppTheme.warning, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${l10n.surge} ×${quoteAsync.surgeMultiplier.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                          color: AppTheme.warning,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  QadamTag(
+                    label:
+                        '${l10n.surge} ×${quoteAsync.surgeMultiplier.toStringAsFixed(1)}',
+                    color: AppTheme.warning,
+                    icon: Icons.bolt_rounded,
+                  ),
+                ],
               ),
             ],
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: QadamButton(
-                label: l10n.orderRide,
-                onPressed: onOrder,
-                icon: Icons.directions_car,
-              ),
+            QadamActionButton(
+              label: l10n.orderRide,
+              onTap: onOrder,
+              icon: Icons.arrow_forward_rounded,
             ),
-            const SizedBox(height: 12),
-            QadamButton(
+            const SizedBox(height: 8),
+            QadamActionButton(
               label: l10n.changeRoute,
-              variant: QadamButtonVariant.text,
-              onPressed: onChangePoints,
+              onTap: onChangePoints,
+              style: QadamButtonStyle.link,
+              height: 44,
             ),
           ],
         ],
       ),
     );
   }
-
-  bool _pickupChangeButton(BuildContext context) => false;
 }
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({required this.icon, required this.value});
+
   final IconData icon;
-  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondary),
-        const SizedBox(width: 4),
-        Text(label,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppTheme.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            value,
             style: const TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary)),
-      ],
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 final _docsProvider = FutureProvider<List<dynamic>>((ref) async {
   return ref.read(driverApiProvider).getDocuments();
@@ -16,58 +17,214 @@ class DocumentsScreen extends ConsumerWidget {
     final docsAsync = ref.watch(_docsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Документы'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showAddDocSheet(context, ref),
-          ),
-        ],
-      ),
-      body: docsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Ошибка: $e')),
-        data: (docs) {
-          if (docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.description_outlined,
-                      size: 64,
-                      color: AppTheme.textSecondary.withOpacity(0.4)),
-                  const SizedBox(height: 16),
-                  const Text('Документы не добавлены',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                  const SizedBox(height: 16),
-                  TextButton.icon(
-                    onPressed: () => _showAddDocSheet(context, ref),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Добавить документ'),
-                  ),
-                ],
+      backgroundColor: AppTheme.surface,
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(_docsProvider),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _DocsHeader(
+                onAdd: () => _showAddDocSheet(context, ref),
               ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) =>
-                _DocCard(doc: docs[i] as Map<String, dynamic>),
-          );
-        },
+            ),
+            docsAsync.when(
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: QadamCard(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const QadamIconBadge(
+                            icon: Icons.wifi_off_rounded,
+                            color: AppTheme.error,
+                            size: 54,
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Ошибка: $e',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              data: (docs) {
+                if (docs.isEmpty) {
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyDocs(
+                      onAdd: () => _showAddDocSheet(context, ref),
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  sliver: SliverList.separated(
+                    itemCount: docs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) => _DocCard(
+                      doc: docs[i] as Map<String, dynamic>,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _showAddDocSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddDocSheet(onSaved: () => ref.invalidate(_docsProvider)),
+    );
+  }
+}
+
+class _DocsHeader extends StatelessWidget {
+  const _DocsHeader({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppTheme.brandGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+        child: Stack(
+          children: [
+            const Positioned.fill(child: QadamOrnament(opacity: 0.15)),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 20, 30),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const QadamWordmark(onDark: true, subtitle: 'DRIVER'),
+                        const Spacer(),
+                        Material(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: onAdd,
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(
+                                Icons.add_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    const Text(
+                      'Документы',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white,
+                        fontSize: 30,
+                        height: 1.12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.7,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Для выхода на линию нужны 3 одобренных документа',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 14,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyDocs extends StatelessWidget {
+  const _EmptyDocs({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          QadamIconBadge(
+            icon: Icons.description_rounded,
+            color: AppTheme.primary,
+            size: 84,
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Документы не добавлены',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Загрузите водительское удостоверение, тех. паспорт и лицензию такси',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 22),
+          QadamActionButton(
+            label: 'Добавить документ',
+            onTap: onAdd,
+            icon: Icons.add_rounded,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -77,7 +234,7 @@ class _DocCard extends StatelessWidget {
   final Map<String, dynamic> doc;
 
   Color _statusColor() => switch (doc['status'] as String) {
-        'approved' => AppTheme.secondary,
+        'approved' => AppTheme.success,
         'rejected' => AppTheme.error,
         _ => AppTheme.warning,
       };
@@ -100,56 +257,54 @@ class _DocCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _statusColor();
-    return Container(
+    return QadamCard(
+      radius: 22,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.divider),
-      ),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.description, color: color, size: 22),
+          QadamIconBadge(
+            icon: Icons.description_rounded,
+            color: color,
+            size: 46,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_docTypeLabel(),
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  _docTypeLabel(),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
                 if (doc['expires_on'] != null)
-                  Text('Истекает: ${doc['expires_on']}',
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 13)),
+                  Text(
+                    'Истекает: ${doc['expires_on']}',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 if (doc['rejection_reason'] != null)
-                  Text('Причина: ${doc['rejection_reason']}',
-                      style: const TextStyle(
-                          color: AppTheme.error, fontSize: 12)),
+                  Text(
+                    'Причина: ${doc['rejection_reason']}',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: AppTheme.error,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _statusLabel(),
-              style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
+          QadamTag(label: _statusLabel(), color: color),
         ],
       ),
     );
@@ -178,58 +333,74 @@ class _AddDocSheetState extends ConsumerState<_AddDocSheet> {
   };
 
   @override
+  void dispose() {
+    _numCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      padding: EdgeInsets.fromLTRB(
-          24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.divider,
-                borderRadius: BorderRadius.circular(2),
+      child: QadamSheet(
+        padding: EdgeInsets.fromLTRB(
+            24, 12, 24, MediaQuery.of(context).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Добавить документ',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Text('Добавить документ',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _docType,
-            decoration: const InputDecoration(labelText: 'Тип документа'),
-            items: _types.entries
-                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-                .toList(),
-            onChanged: (v) => setState(() => _docType = v!),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _numCtrl,
-            decoration: const InputDecoration(
-                hintText: 'Номер документа (необязательно)'),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Text('Сохранить'),
-          ),
-        ],
+            const SizedBox(height: 18),
+            DropdownButtonFormField<String>(
+              value: _docType,
+              decoration: const InputDecoration(labelText: 'Тип документа'),
+              items: _types.entries
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Text(
+                        e.value,
+                        style: const TextStyle(fontFamily: 'Manrope'),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _docType = v!),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _numCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Номер документа',
+                hintText: 'Необязательно',
+              ),
+            ),
+            const SizedBox(height: 22),
+            QadamActionButton(
+              label: 'Сохранить',
+              loading: _saving,
+              onTap: _save,
+              icon: Icons.check_rounded,
+            ),
+            const SizedBox(height: 6),
+            QadamActionButton(
+              label: 'Отмена',
+              style: QadamButtonStyle.link,
+              height: 44,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
       ),
     );
   }

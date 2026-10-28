@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 class OfferScreen extends ConsumerStatefulWidget {
   const OfferScreen({super.key, required this.rideId});
@@ -29,7 +30,12 @@ class _OfferScreenState extends ConsumerState<OfferScreen> {
     try {
       final api = ref.read(driverApiProvider);
       final ride = await api.getRide(widget.rideId);
-      if (mounted) setState(() { _ride = ride; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _ride = ride;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -69,17 +75,19 @@ class _OfferScreenState extends ConsumerState<OfferScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.surface,
-      appBar: AppBar(
-        title: const Text('Новый заказ'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.go('/dashboard'),
-        ),
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _ride == null
-              ? const Center(child: Text('Заказ не найден'))
+              ? const Center(
+                  child: Text(
+                    'Заказ не найден',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                )
               : _RideOfferDetails(
                   ride: _ride!,
                   accepting: _accepting,
@@ -116,178 +124,175 @@ class _RideOfferDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, MediaQuery.of(context).padding.bottom + 24),
-      child: Column(
-        children: [
-          // Earnings highlight
-          if (_net != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [
-                  AppTheme.earningsGreen,
-                  Color(0xFF00A844),
-                ]),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
-                  const Text('Ваш заработок',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  Text(
-                    '~${_net!.toStringAsFixed(0)} сом',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 16),
-
-          // Route
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.divider),
-            ),
-            child: Column(
-              children: [
-                _RouteRow(
-                  icon: Icons.my_location,
-                  color: AppTheme.primary,
-                  label: 'Посадка',
-                  address: ride['pickup_address'] as String? ?? '—',
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(left: 22),
-                  child: Divider(height: 20),
-                ),
-                _RouteRow(
-                  icon: Icons.location_on,
-                  color: AppTheme.error,
-                  label: 'Назначение',
-                  address: ride['dropoff_address'] as String? ?? '—',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Details row
-          Row(
+    return Column(
+      children: [
+        _OfferHeader(net: _net),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              Expanded(
-                child: _DetailCard(
-                  icon: Icons.straighten,
-                  label: 'Расстояние',
-                  value: ride['distance_km'] != null
-                      ? '${double.parse(ride['distance_km'].toString()).toStringAsFixed(1)} км'
-                      : '—',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DetailCard(
-                  icon: Icons.timer,
-                  label: 'Время',
-                  value: ride['duration_min'] != null
-                      ? '~${double.parse(ride['duration_min'].toString()).toStringAsFixed(0)} мин'
-                      : '—',
+              Transform.translate(
+                offset: const Offset(0, -30),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    QadamCard(
+                      radius: 26,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _RouteRow(
+                            dot: null,
+                            label: 'Посадка',
+                            address: ride['pickup_address'] as String? ?? '—',
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 5),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 2,
+                                  height: 26,
+                                  color: AppTheme.divider,
+                                ),
+                              ],
+                            ),
+                          ),
+                          _RouteRow(
+                            dot: AppTheme.ink,
+                            label: 'Назначение',
+                            address:
+                                ride['dropoff_address'] as String? ?? '—',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _MetricCard(
+                            icon: Icons.straighten_rounded,
+                            label: 'Расстояние',
+                            value: ride['distance_km'] != null
+                                ? '${double.parse(ride['distance_km'].toString()).toStringAsFixed(1)} км'
+                                : '—',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MetricCard(
+                            icon: Icons.schedule_rounded,
+                            label: 'В пути',
+                            value: ride['duration_min'] != null
+                                ? '~${double.parse(ride['duration_min'].toString()).toStringAsFixed(0)} мин'
+                                : '—',
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_price != null) ...[
+                      const SizedBox(height: 12),
+                      QadamCard(
+                        radius: 20,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        color: AppTheme.mint,
+                        borderColor: Colors.transparent,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.verified_rounded,
+                              color: AppTheme.success,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Комиссия Qadam 0% — вся сумма ваша',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.success,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${_price!.toStringAsFixed(0)} сом',
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    QadamCard(
+                      radius: 20,
+                      padding: const EdgeInsets.all(16),
+                      child: const Row(
+                        children: [
+                          QadamIconBadge(
+                            icon: Icons.payments_rounded,
+                            color: AppTheme.warning,
+                            size: 40,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Оплата наличными или переводом — без онлайн-платежа',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 12,
+                                height: 1.4,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-
-          const Spacer(),
-
-          // CTA buttons
-          Row(
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            MediaQuery.of(context).padding.bottom + 16,
+          ),
+          child: Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: declining ? null : onDecline,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.error,
-                    side: const BorderSide(color: AppTheme.error),
-                  ),
-                  child: declining
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppTheme.error))
-                      : const Text('Отклонить'),
+                child: QadamActionButton(
+                  label: 'Отклонить',
+                  onTap: declining ? null : onDecline,
+                  style: QadamButtonStyle.ghost,
+                  loading: declining,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
-                  onPressed: accepting ? null : onAccept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.earningsGreen,
-                  ),
-                  child: accepting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.check, size: 18),
-                            SizedBox(width: 6),
-                            Text('Принять'),
-                          ],
-                        ),
+                child: QadamActionButton(
+                  label: 'Принять заказ',
+                  onTap: accepting ? null : onAccept,
+                  loading: accepting,
+                  icon: Icons.check_rounded,
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RouteRow extends StatelessWidget {
-  const _RouteRow({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.address,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String label;
-  final String address;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12)),
-              Text(address,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge),
             ],
           ),
         ),
@@ -296,8 +301,164 @@ class _RouteRow extends StatelessWidget {
   }
 }
 
-class _DetailCard extends StatelessWidget {
-  const _DetailCard({
+class _OfferHeader extends StatelessWidget {
+  const _OfferHeader({required this.net});
+  final double? net;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppTheme.brandGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+        child: Stack(
+          children: [
+            const Positioned.fill(child: QadamOrnament(opacity: 0.16)),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 52),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Material(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => context.go('/dashboard'),
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: Colors.white,
+                                size: 19,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        const QadamTag(
+                          label: 'НОВЫЙ ЗАКАЗ',
+                          color: Colors.white,
+                          background: Color(0x33FFFFFF),
+                          icon: Icons.bolt_rounded,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    Text(
+                      'Ваш заработок',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      net != null ? '~${net!.toStringAsFixed(0)} сом' : '—',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white,
+                        fontSize: 44,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Без комиссии · оплата наличными',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteRow extends StatelessWidget {
+  const _RouteRow({
+    required this.dot,
+    required this.label,
+    required this.address,
+  });
+
+  final Color? dot;
+  final String label;
+  final String address;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            gradient: dot == null ? AppTheme.brandGradient : null,
+            color: dot,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                address,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 15,
+                  height: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.icon,
     required this.label,
     required this.value,
@@ -309,26 +470,34 @@ class _DetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.divider),
-      ),
-      child: Row(
+    return QadamCard(
+      radius: 20,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppTheme.primary),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 11)),
-              Text(value,
-                  style: Theme.of(context).textTheme.titleMedium),
-            ],
+          QadamIconBadge(icon: icon, size: 38),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
           ),
         ],
       ),

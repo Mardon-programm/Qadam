@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
-import '../../../core/storage/auth_storage.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/providers/locale_provider.dart';
+import '../../../core/storage/auth_storage.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 final _meProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(apiServiceProvider).getMe();
@@ -22,117 +23,172 @@ class ProfileScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profile)),
+      backgroundColor: AppTheme.surface,
       body: meAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (me) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              // Avatar
-              CircleAvatar(
-                radius: 44,
-                backgroundColor: AppTheme.primary.withOpacity(0.1),
-                child: Text(
-                  (me['full_name'] as String? ?? me['phone'] as String? ?? '?')
-                      .substring(0, 1)
-                      .toUpperCase(),
-                  style: const TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary),
-                ),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: QadamCard(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const QadamIconBadge(
+                    icon: Icons.person_off_rounded,
+                    color: AppTheme.error,
+                    size: 56,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '$e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  QadamActionButton(
+                    label: 'Повторить',
+                    onTap: () => ref.invalidate(_meProvider),
+                    style: QadamButtonStyle.soft,
+                    height: 48,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                me['full_name'] as String? ?? 'Пользователь',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              Text(
-                me['phone'] as String? ?? '',
-                style: const TextStyle(color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 32),
-              // Settings section
-              _SettingsSection(items: [
-                _SettingsItem(
-                  icon: Icons.payment,
-                  label: l10n.paymentMethods,
-                  onTap: () => context.push('/profile/payment-methods'),
-                ),
-                _SettingsItem(
-                  icon: Icons.language,
-                  label: l10n.language,
-                  trailing: Text(locale.languageCode == 'ky' ? 'Кыргызча' : 'Русский'),
-                  onTap: () => _showLanguageDialog(context, ref),
-                ),
-                _SettingsItem(
-                  icon: Icons.notifications_outlined,
-                  label: l10n.notifications,
-                  onTap: () {},
-                ),
-                _SettingsItem(
-                  icon: Icons.shield_outlined,
-                  label: l10n.privacy,
-                  onTap: () {},
-                ),
-              ]),
-              const SizedBox(height: 16),
-              _SettingsSection(items: [
-                _SettingsItem(
-                  icon: Icons.help_outline,
-                  label: l10n.help,
-                  onTap: () => context.push('/support/new'),
-                ),
-                _SettingsItem(
-                  icon: Icons.info_outline,
-                  label: l10n.about,
-                  trailing: const Text('1.0.0',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                  onTap: () {},
-                ),
-              ]),
-              const SizedBox(height: 16),
-              _SettingsSection(items: [
-                _SettingsItem(
-                  icon: Icons.logout,
-                  label: l10n.logout,
-                  labelColor: AppTheme.error,
-                  onTap: () async {
-                    await ref
-                        .read(authNotifierProvider.notifier)
-                        .signOut();
-                    if (context.mounted) context.go('/auth/phone');
-                  },
-                ),
-              ]),
-              const SizedBox(height: 32),
-            ],
+            ),
           ),
+        ),
+        data: (me) => ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _ProfileHeader(me: me),
+            Transform.translate(
+              offset: const Offset(0, -34),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    _SettingsSection(
+                      title: 'Аккаунт',
+                      items: [
+                        _SettingsItem(
+                          icon: Icons.credit_card_rounded,
+                          label: l10n.paymentMethods,
+                          onTap: () =>
+                              context.push('/profile/payment-methods'),
+                        ),
+                        _SettingsItem(
+                          icon: Icons.language_rounded,
+                          label: l10n.language,
+                          trailing: Text(
+                            locale.languageCode == 'ky'
+                                ? 'Кыргызча'
+                                : 'Русский',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                          onTap: () => _showLanguageDialog(context, ref),
+                        ),
+                        _SettingsItem(
+                          icon: Icons.notifications_rounded,
+                          label: l10n.notifications,
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.shield_rounded,
+                          label: l10n.privacy,
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _SettingsSection(
+                      title: 'Помощь',
+                      items: [
+                        _SettingsItem(
+                          icon: Icons.support_agent_rounded,
+                          label: l10n.help,
+                          onTap: () => context.push('/support/new'),
+                        ),
+                        _SettingsItem(
+                          icon: Icons.info_rounded,
+                          label: l10n.about,
+                          trailing: const Text(
+                            '1.0.0',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    QadamActionButton(
+                      label: l10n.logout,
+                      onTap: () async {
+                        await ref.read(authNotifierProvider.notifier).signOut();
+                        if (context.mounted) context.go('/auth/phone');
+                      },
+                      style: QadamButtonStyle.danger,
+                      icon: Icons.logout_rounded,
+                      height: 54,
+                    ),
+                    const SizedBox(height: 28),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   void _showLanguageDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выберите язык / Тилди тандаңыз'),
-        content: Column(
+      backgroundColor: Colors.transparent,
+      builder: (context) => QadamSheet(
+        padding: EdgeInsets.fromLTRB(
+            24, 12, 24, MediaQuery.of(context).padding.bottom + 24),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              title: const Text('Русский'),
+            const Text(
+              'Выберите язык / Тилди тандаңыз',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _LanguageTile(
+              flag: '🇷🇺',
+              title: 'Русский',
+              selected: ref.read(localeProvider).languageCode == 'ru',
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('ru');
                 Navigator.pop(context);
               },
             ),
-            ListTile(
-              title: const Text('Кыргызча'),
+            const SizedBox(height: 10),
+            _LanguageTile(
+              flag: '🇰🇬',
+              title: 'Кыргызча',
+              selected: ref.read(localeProvider).languageCode == 'ky',
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('ky');
                 Navigator.pop(context);
@@ -145,28 +201,169 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.items});
-  final List<_SettingsItem> items;
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({
+    required this.flag,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String flag;
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppTheme.lavender : AppTheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Text(flag, style: const TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              if (selected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppTheme.primary,
+                  size: 22,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.me});
+  final Map<String, dynamic> me;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = me['full_name'] as String? ?? 'Пользователь';
+    final phone = me['phone'] as String? ?? '';
+
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.divider),
+      decoration: const BoxDecoration(
+        gradient: AppTheme.brandGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
-      child: Column(
-        children: items
-            .map((item) => item)
-            .expand((item) => [
-                  item,
-                  if (item != items.last)
-                    const Divider(height: 1, indent: 56),
-                ])
-            .toList(),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+        child: Stack(
+          children: [
+            const Positioned.fill(child: QadamOrnament(opacity: 0.16)),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 56),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const QadamWordmark(onDark: true),
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            shape: BoxShape.circle,
+                          ),
+                          child: QadamAvatar(name: name, size: 66),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                phone,
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.items, this.title});
+  final List<_SettingsItem> items;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: QadamSectionLabel(title!),
+          ),
+        ],
+        QadamCard(
+          radius: 24,
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                items[i],
+                if (i != items.length - 1)
+                  const Divider(height: 1, indent: 68, endIndent: 16),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -177,30 +374,47 @@ class _SettingsItem extends StatelessWidget {
     required this.label,
     this.trailing,
     required this.onTap,
-    this.labelColor,
   });
 
   final IconData icon;
   final String label;
   final Widget? trailing;
   final VoidCallback onTap;
-  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: labelColor ?? AppTheme.textSecondary, size: 22),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: labelColor ?? AppTheme.textPrimary,
-          fontSize: 15,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            QadamIconBadge(
+              icon: icon,
+              color: AppTheme.primary,
+              size: 38,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  color: AppTheme.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            trailing ??
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppTheme.textSecondary,
+                ),
+          ],
         ),
       ),
-      trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondary),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      dense: true,
     );
   }
 }

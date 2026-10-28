@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/l10n/app_localizations.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 class LanguageSelectionScreen extends ConsumerWidget {
   const LanguageSelectionScreen({super.key});
@@ -12,79 +12,78 @@ class LanguageSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 48),
-              // Logo
-              Center(
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.local_taxi,
-                    color: Colors.white,
-                    size: 48,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Center(
-                child: Text(
-                  'Qadam Driver',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.brandGradient),
+        child: Stack(
+          children: [
+            const Positioned.fill(child: QadamOrnament(opacity: 0.18)),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const QadamWordmark(onDark: true, subtitle: 'DRIVER'),
+                    const Spacer(),
+                    const Text(
+                      'Выберите язык\nТилди тандаңыз',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        height: 1.12,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                        color: Colors.white,
                       ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Text(
-                  'Выберите язык / Тилди тандаңыз',
-                  style: Theme.of(context).textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 48),
-              // Language options
-              _LanguageOption(
-                flag: '🇷🇺',
-                name: 'Русский',
-                subtitle: 'Russian',
-                onTap: () {
-                  ref.read(localeProvider.notifier).setLocale('ru');
-                  context.go('/auth/phone');
-                },
-              ),
-              const SizedBox(height: 16),
-              _LanguageOption(
-                flag: '🇰🇬',
-                name: 'Кыргызча',
-                subtitle: 'Kyrgyz',
-                onTap: () {
-                  ref.read(localeProvider.notifier).setLocale('ky');
-                  context.go('/auth/phone');
-                },
-              ),
-              const Spacer(),
-              Center(
-                child: Text(
-                  'Можно изменить позже в настройках',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Зарабатывайте на поездках по городу и межгороду',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                        color: Colors.white.withOpacity(0.78),
                       ),
+                    ),
+                    const SizedBox(height: 32),
+                    _LanguageOption(
+                      flag: '🇷🇺',
+                      name: 'Русский',
+                      subtitle: 'Russian',
+                      onTap: () {
+                        ref.read(localeProvider.notifier).setLocale('ru');
+                        context.go('/auth/phone');
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    _LanguageOption(
+                      flag: '🇰🇬',
+                      name: 'Кыргызча',
+                      subtitle: 'Kyrgyz',
+                      onTap: () {
+                        ref.read(localeProvider.notifier).setLocale('ky');
+                        context.go('/auth/phone');
+                      },
+                    ),
+                    const Spacer(),
+                    Center(
+                      child: Text(
+                        'Можно изменить позже в настройках',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.65),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -106,55 +105,69 @@ class _LanguageOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.divider),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Text(
-              flag,
-              style: const TextStyle(fontSize: 32),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                  ),
-                ],
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Center(
+                  child: Text(flag, style: const TextStyle(fontSize: 28)),
+                ),
               ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.brandGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

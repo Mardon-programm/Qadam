@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_button.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 class NewCaseScreen extends ConsumerStatefulWidget {
   const NewCaseScreen({
@@ -28,9 +28,9 @@ class _NewCaseScreenState extends ConsumerState<NewCaseScreen> {
 
   static const _types = {
     'general': 'Общий вопрос',
-    'payment_issue': 'Проблема с оплатой',
-    'driver_complaint': 'Жалоба на водителя',
-    'trip_issue': 'Проблема с поездкой',
+    'payment_issue': 'Оплата',
+    'driver_complaint': 'Жалоба',
+    'trip_issue': 'Поездка',
     'account': 'Аккаунт',
     'other': 'Другое',
   };
@@ -69,67 +69,107 @@ class _NewCaseScreenState extends ConsumerState<NewCaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Новое обращение'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Тип обращения',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _types.entries.map((e) {
-                final selected = e.key == _caseType;
-                return ChoiceChip(
-                  label: Text(e.value),
-                  selected: selected,
-                  onSelected: (_) => setState(() => _caseType = e.key),
-                  selectedColor: AppTheme.primary.withOpacity(0.15),
-                  labelStyle: TextStyle(
-                    color: selected ? AppTheme.primary : AppTheme.textSecondary,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.normal,
+      backgroundColor: AppTheme.surface,
+      body: Column(
+        children: [
+          QadamBrandHeader(
+            showBack: true,
+            title: 'Новое обращение',
+            subtitle: 'Опишите ситуацию — ответим в приложении',
+            bottomRadius: 36,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              child: Transform.translate(
+                offset: const Offset(0, -26),
+                child: QadamCard(
+                  radius: 28,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const QadamSectionLabel('Тип обращения'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _types.entries.map((e) {
+                          final selected = e.key == _caseType;
+                          return GestureDetector(
+                            onTap: () =>
+                                setState(() => _caseType = e.key),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: selected
+                                    ? AppTheme.brandGradient
+                                    : null,
+                                color: selected
+                                    ? null
+                                    : AppTheme.surface,
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.transparent
+                                      : AppTheme.divider,
+                                ),
+                              ),
+                              child: Text(
+                                e.value,
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: selected
+                                      ? Colors.white
+                                      : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 22),
+                      const QadamSectionLabel('Тема'),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _subjectController,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          hintText: 'Кратко опишите проблему',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const QadamSectionLabel('Описание'),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _descController,
+                        maxLines: 5,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          hintText: 'Подробно опишите ситуацию…',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      QadamActionButton(
+                        label: 'Отправить',
+                        loading: _loading,
+                        onTap: _submit,
+                        icon: Icons.send_rounded,
+                      ),
+                    ],
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            Text('Тема', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _subjectController,
-              decoration:
-                  const InputDecoration(hintText: 'Кратко опишите проблему'),
-            ),
-            const SizedBox(height: 16),
-            Text('Описание', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _descController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Подробно опишите ситуацию…',
-                alignLabelWithHint: true,
+                ),
               ),
             ),
-            const SizedBox(height: 32),
-            QadamButton(
-              label: 'Отправить',
-              isLoading: _loading,
-              onPressed: _submit,
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

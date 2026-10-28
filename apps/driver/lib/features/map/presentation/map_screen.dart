@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
@@ -60,7 +61,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         timeLimit: const Duration(seconds: 10),
       );
       if (mounted) {
-        setState(() => _driverPosition = LatLng(position.latitude, position.longitude));
+        setState(
+          () => _driverPosition = LatLng(position.latitude, position.longitude),
+        );
         _mapController.move(_driverPosition!, 15);
       }
 
@@ -82,15 +85,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     try {
       final api = ref.read(driverApiProvider);
       final offers = await api.getOffers();
-      if (mounted) setState(() {
-        _loading = false;
-        ref.read(offersProvider.notifier).state = List<Map<String, dynamic>>.from(offers);
-      });
+      if (mounted) {
+        setState(() => _loading = false);
+        ref.read(offersProvider.notifier).state =
+            List<Map<String, dynamic>>.from(offers);
+      }
     } catch (e) {
-      if (mounted) setState(() {
-        _loading = false;
-        _error = 'Не удалось загрузить заказы: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Не удалось загрузить заказы';
+        });
+      }
     }
   }
 
@@ -111,7 +117,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             backgroundColor: AppTheme.secondary,
           ),
         );
-        // Reload offers when going online
         if (newVal == true) _loadOffers();
       }
     } catch (e) {
@@ -159,34 +164,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       markers.add(
         Marker(
           point: LatLng(lat, lng),
-          width: 44,
-          height: 44,
+          width: 52,
+          height: 52,
           child: GestureDetector(
             onTap: () => _acceptOffer(rideId),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.primary,
+                gradient: AppTheme.brandGradient,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: Colors.white, width: 2.5),
+                boxShadow: AppTheme.floatShadow,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.local_taxi, color: Colors.white, size: 20),
-                  const SizedBox(height: 4),
+                  const Icon(
+                    Icons.local_taxi_rounded,
+                    color: Colors.white,
+                    size: 19,
+                  ),
                   Text(
-                    '~${offer['eta_min'] ?? 0} мин',
+                    '~${offer['eta_min'] ?? 0}',
                     style: const TextStyle(
+                      fontFamily: 'Manrope',
                       color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -205,70 +208,98 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final offers = ref.watch(offersProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Карта заказов'),
-        centerTitle: true,
-        actions: [
-          Switch(
-            value: isOnline,
-            onChanged: _toggleOnline,
-            activeColor: Colors.white,
-            activeTrackColor: AppTheme.secondary.withOpacity(0.6),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            isOnline ? 'Онлайн' : 'Офлайн',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
+      backgroundColor: AppTheme.surface,
       body: Stack(
         children: [
-          // Map
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _driverPosition ?? _bishkek,
-              initialZoom: 14,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.qadam.driver',
+          ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              0.88, 0, 0, 0, 18,
+              0, 0.91, 0, 0, 16,
+              0, 0, 0.96, 0, 10,
+              0, 0, 0, 1, 0,
+            ]),
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _driverPosition ?? _bishkek,
+                initialZoom: 14,
               ),
-              // Driver marker
-              if (_driverPosition != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _driverPosition!,
-                      width: 48,
-                      height: 48,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isOnline ? AppTheme.secondary : AppTheme.textSecondary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.qadam.driver',
+                ),
+                if (_driverPosition != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _driverPosition!,
+                        width: 54,
+                        height: 54,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: isOnline
+                                ? AppTheme.brandGradient
+                                : AppTheme.deepGradient,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: AppTheme.floatShadow,
+                          ),
+                          child: const Icon(
+                            Icons.local_taxi_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
                         ),
-                        child: const Icon(Icons.local_taxi, color: Colors.white, size: 28),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                if (isOnline && offers.isNotEmpty)
+                  MarkerLayer(markers: _buildOfferMarkers()),
+              ],
+            ),
+          ),
+
+          // Top bar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: QadamCard(
+                  radius: 22,
+                  padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+                  child: Row(
+                    children: [
+                      const QadamWordmark(size: 18, subtitle: 'DRIVER'),
+                      const Spacer(),
+                      Text(
+                        isOnline ? 'Онлайн' : 'Офлайн',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: isOnline
+                              ? AppTheme.success
+                              : AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Switch(
+                        value: isOnline,
+                        onChanged: _toggleOnline,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: AppTheme.success,
+                      ),
+                    ],
+                  ),
                 ),
-              // Offer markers
-              if (isOnline && offers.isNotEmpty)
-                MarkerLayer(
-                  markers: _buildOfferMarkers(),
-                ),
-            ],
+              ),
+            ),
           ),
 
           // Loading / error
@@ -277,52 +308,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           else if (_error != null && offers.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, color: AppTheme.error, size: 48),
-                    const SizedBox(height: 8),
-                    Text(_error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppTheme.error)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _loadOffers,
-                      child: const Text('Повторить'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Active offers count badge
-          if (isOnline && offers.isNotEmpty)
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Card(
-                color: AppTheme.primary,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
+                padding: const EdgeInsets.all(32),
+                child: QadamCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.notification_add, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Доступно заказов: ${offers.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      const QadamIconBadge(
+                        icon: Icons.wifi_off_rounded,
+                        color: AppTheme.error,
+                        size: 54,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text('Обновить',
-                            style: TextStyle(color: Colors.white)),
+                      const SizedBox(height: 16),
+                      QadamActionButton(
+                        label: 'Повторить',
+                        onTap: _loadOffers,
+                        style: QadamButtonStyle.soft,
+                        height: 46,
                       ),
                     ],
                   ),
@@ -330,35 +341,106 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
+          // Active offers count badge
+          if (isOnline && offers.isNotEmpty)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 82,
+              left: 16,
+              right: 16,
+              child: QadamGradientCard(
+                radius: 20,
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.notifications_active_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Доступно заказов: ${offers.length}',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _loadOffers,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text(
+                        'Обновить',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           // Recenter button
           Positioned(
-            bottom: 16,
+            bottom: offers.isNotEmpty && isOnline ? 100 : 24,
             right: 16,
-            child: FloatingActionButton.small(
-              onPressed: () {
-                if (_driverPosition != null) {
-                  _mapController.move(_driverPosition!, 15);
-                }
-              },
-              child: const Icon(Icons.my_location, size: 20),
-              backgroundColor: Colors.white,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 4,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  if (_driverPosition != null) {
+                    _mapController.move(_driverPosition!, 15);
+                  }
+                },
+                child: const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(
+                    Icons.my_location_rounded,
+                    size: 21,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
             ),
           ),
+
+          // Accept first offer
+          if (offers.isNotEmpty && isOnline)
+            Positioned(
+              bottom: 24,
+              left: 16,
+              right: 16,
+              child: QadamActionButton(
+                label: 'Взять заказ',
+                icon: Icons.check_rounded,
+                onTap: () {
+                  final first = offers.first;
+                  final rideId = first['ride_order_id'] as String?;
+                  if (rideId != null) _acceptOffer(rideId);
+                },
+              ),
+            ),
         ],
       ),
-      floatingActionButton: offers.isNotEmpty && isOnline
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                // Accept first available offer
-                final first = offers.first;
-                final rideId = first['ride_order_id'] as String?;
-                if (rideId != null) _acceptOffer(rideId);
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Взять заказ'),
-              backgroundColor: AppTheme.earningsGreen,
-            )
-          : null,
     );
   }
 }

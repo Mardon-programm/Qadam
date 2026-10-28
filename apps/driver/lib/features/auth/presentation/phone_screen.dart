@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/qadam_ui.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
   const PhoneScreen({super.key});
@@ -19,7 +20,10 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   String? _error;
 
   Future<void> _send() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final api = ref.read(driverApiProvider);
       final data = await api.requestOtp(_ctrl.text.trim());
@@ -41,59 +45,65 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 48),
-              Row(children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.local_taxi,
-                      color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Text(l10n.appName,
-                    style: Theme.of(context).textTheme.headlineMedium),
-              ]),
-              const SizedBox(height: 48),
-              Text(l10n.loginAsDriver,
-                  style: Theme.of(context).textTheme.headlineLarge),
-              const SizedBox(height: 8),
-              Text(l10n.enterPhone,
-                  style: const TextStyle(color: AppTheme.textSecondary)),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _ctrl,
-                keyboardType: TextInputType.phone,
-                autofocus: true,
-                style: Theme.of(context).textTheme.titleLarge,
-                decoration: InputDecoration(
-                  hintText: l10n.phonePlaceholder,
-                  errorText: _error,
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _loading ? null : _send,
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(l10n.getCode),
-              ),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          QadamBrandHeader(
+            title: l10n.loginAsDriver,
+            subtitle: l10n.enterPhone,
+            bottomRadius: 36,
           ),
-        ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Transform.translate(
+                offset: const Offset(0, -26),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: AppTheme.floatShadow,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: _ctrl,
+                        keyboardType: TextInputType.phone,
+                        autofocus: true,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: AppTheme.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: l10n.phonePlaceholder,
+                          prefixIcon: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14),
+                            child: Text('🇰🇬', style: TextStyle(fontSize: 22)),
+                          ),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 0, minHeight: 0),
+                          errorText: _error,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      QadamActionButton(
+                        label: l10n.getCode,
+                        onTap: _send,
+                        loading: _loading,
+                        icon: Icons.arrow_forward_rounded,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
