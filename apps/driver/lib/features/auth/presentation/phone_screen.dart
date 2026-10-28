@@ -96,6 +96,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                           prefixIconConstraints:
                               const BoxConstraints(minWidth: 0, minHeight: 0),
                           errorText: _error,
+                          errorMaxLines: 2,
                         ),
                       ),
                       const SizedBox(height: 18),

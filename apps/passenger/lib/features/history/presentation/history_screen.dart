@@ -647,15 +647,25 @@ class _BookingCard extends StatelessWidget {
       'confirmed' => ('Подтверждена', AppTheme.success),
       'completed' => ('Завершена', AppTheme.primary),
       'cancelled' => ('Отменена', AppTheme.error),
+      'no_show' => ('Неявка', AppTheme.error),
       'held' => ('Ожидает оплаты', AppTheme.warning),
       _ => (booking.status, AppTheme.textSecondary),
     };
   }
 
+  /// Trips are stored as typed by the driver, so "бишкек" is common.
+  String _city(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return value;
+    return trimmed[0].toUpperCase() + trimmed.substring(1);
+  }
+
   String get _title {
     final from = booking.originCity;
     final to = booking.destinationCity;
-    if (from != null && to != null) return '$from → $to';
+    if (from != null && to != null) {
+      return '${_city(from)} → ${_city(to)}';
+    }
     return 'Межгород · ${booking.tripId.substring(0, 8).toUpperCase()}';
   }
 
