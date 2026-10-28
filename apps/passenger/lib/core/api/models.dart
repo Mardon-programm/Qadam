@@ -30,6 +30,11 @@ class RideQuote {
   final double quotedPrice;
   final String currency;
   final double surgeMultiplier;
+  final double trafficMultiplier;
+  final double demandMultiplier;
+  final String congestion;
+  final String routeSource;
+  final List<List<double>> routeGeometry;
   final double platformFeeEstimate;
   final double driverNetEstimate;
 
@@ -39,6 +44,11 @@ class RideQuote {
     required this.quotedPrice,
     required this.currency,
     required this.surgeMultiplier,
+    this.trafficMultiplier = 1.0,
+    this.demandMultiplier = 1.0,
+    this.congestion = 'unknown',
+    this.routeSource = 'estimate',
+    this.routeGeometry = const [],
     required this.platformFeeEstimate,
     required this.driverNetEstimate,
   });
@@ -49,6 +59,15 @@ class RideQuote {
         quotedPrice: _toDouble(j['quoted_price']),
         currency: j['currency'] as String? ?? 'KGS',
         surgeMultiplier: _toDouble(j['surge_multiplier']),
+        trafficMultiplier: _toDouble(j['traffic_multiplier']),
+        demandMultiplier: _toDouble(j['demand_multiplier']),
+        congestion: j['congestion'] as String? ?? 'unknown',
+        routeSource: j['route_source'] as String? ?? 'estimate',
+        routeGeometry: (j['route_geometry'] as List?)
+                ?.whereType<List>()
+                .map((p) => p.map(_toDouble).toList())
+                .toList() ??
+            const [],
         platformFeeEstimate: _toDouble(j['platform_fee_estimate']),
         driverNetEstimate: _toDouble(j['driver_net_estimate']),
       );
@@ -222,6 +241,54 @@ class SupportCase {
         subject: j['subject'] as String,
         description: j['description'] as String,
         resolution: j['resolution'] as String?,
+      );
+}
+
+class PlaceSuggestion {
+  final String name;
+  final String address;
+  final String fullAddress;
+  final double lat;
+  final double lng;
+
+  const PlaceSuggestion({
+    required this.name,
+    required this.address,
+    required this.fullAddress,
+    required this.lat,
+    required this.lng,
+  });
+
+  /// "259, улица Токтогула" is a bad title; fall back to the street part.
+  String get title => RegExp(r'^[\d\s-]+$').hasMatch(name)
+      ? (address.split(',').first.trim().isEmpty ? fullAddress : address.split(',').first.trim())
+      : name;
+
+  String get subtitle {
+    final rest = address.trim();
+    return rest.isEmpty ? fullAddress : rest;
+  }
+
+  factory PlaceSuggestion.fromJson(Map<String, dynamic> j) => PlaceSuggestion(
+        name: j['name'] as String? ?? '',
+        address: j['address'] as String? ?? '',
+        fullAddress: j['full_address'] as String? ?? '',
+        lat: _toDouble(j['lat']),
+        lng: _toDouble(j['lng']),
+      );
+}
+
+class MapConfig {
+  final String? trafficTileUrl;
+  final String? trafficAttribution;
+
+  const MapConfig({this.trafficTileUrl, this.trafficAttribution});
+
+  bool get hasTraffic => trafficTileUrl != null && trafficTileUrl!.isNotEmpty;
+
+  factory MapConfig.fromJson(Map<String, dynamic> j) => MapConfig(
+        trafficTileUrl: j['traffic_tile_url'] as String?,
+        trafficAttribution: j['traffic_attribution'] as String?,
       );
 }
 

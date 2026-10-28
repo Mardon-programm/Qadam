@@ -48,8 +48,21 @@ class Settings(BaseSettings):
     city_per_minute: float = 2.0
     city_min_fare: float = 80.0
     city_surge_cap: float = 2.0
+    city_free_flow_kmh: float = 30.0
+    city_demand_cap: float = 1.4
     flex_commission_rate: float = 0.0  # Free for drivers - no commission
     region_commission_rate: float = 0.0  # Free for drivers - no commission
+
+    # Maps / routing / geocoding
+    # Public OSRM works without a key; set a self-hosted instance in production
+    # for better latency and reliability.
+    osrm_url: str = "https://router.project-osrm.org"
+    geocoder_url: str = "https://nominatim.openstreetmap.org"
+    geocoder_contact: str = "dev@qadam.kg"
+    # Optional live traffic tiles (TomTom flow tiles, HERE, etc). The template
+    # must contain {z}/{x}/{y}; the key stays on the server.
+    traffic_tile_url_template: str = ""
+    traffic_tile_attribution: str = ""
 
     @property
     def locale_list(self) -> list[str]:

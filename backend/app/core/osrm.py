@@ -12,9 +12,12 @@ class OSRMClient:
 
     def __init__(self):
         settings = get_settings()
-        # Default to local OSRM instance or use configured endpoint
-        self.base_url = getattr(settings, "osrm_url", "http://localhost:5000")
-        self.client = httpx.AsyncClient(timeout=10.0)
+        # Public OSRM by default; override with OSRM_URL for a self-hosted one.
+        self.base_url = (getattr(settings, "osrm_url", "") or "").rstrip("/")
+        self.client = httpx.AsyncClient(
+            timeout=8.0,
+            headers={"User-Agent": "Qadam/1.0 (+https://qadam.kg)"},
+        )
 
     async def close(self):
         """Close HTTP client."""
@@ -35,14 +38,18 @@ class OSRMClient:
             {
                 "distance": float (meters),
                 "duration": float (seconds),
-                "geometry": str (encoded polyline),
+                "geometry": list[[lat, lng], ...] (road-following polyline),
+                "fallback": bool,
             }
         """
+        if not self.base_url:
+            return await self._fallback_estimate(start_lat, start_lng, end_lat, end_lng)
+
         coords = f"{start_lng},{start_lat};{end_lng},{end_lat}"
         params = {
             "alternatives": "true" if alternatives else "false",
             "steps": "false",
-            "geometries": "polyline",
+            "geometries": "geojson",
             "overview": "full",
         }
 
@@ -54,22 +61,20 @@ class OSRMClient:
             data = response.json()
 
             if data.get("code") != "Ok" or not data.get("routes"):
-                return {
-                    "distance": 0.0,
-                    "duration": 0.0,
-                    "geometry": "",
-                    "error": data.get("message", "No route found"),
-                }
+                return await self._fallback_estimate(start_lat, start_lng, end_lat, end_lng)
 
             route = data["routes"][0]
+            # GeoJSON is [lng, lat]; the UI wants [lat, lng].
+            coordinates = (route.get("geometry") or {}).get("coordinates") or []
+            geometry = [[lat, lng] for lng, lat in coordinates]
             return {
                 "distance": route["distance"],  # meters
                 "duration": route["duration"],  # seconds
-                "geometry": route["geometry"],
+                "geometry": geometry,
+                "source": "osrm",
             }
 
-        except httpx.HTTPError:
-            # Fallback to straight-line estimation
+        except (httpx.HTTPError, ValueError, KeyError):
             return await self._fallback_estimate(start_lat, start_lng, end_lat, end_lng)
 
     async def get_distance_matrix(
@@ -149,8 +154,9 @@ class OSRMClient:
         return {
             "distance": road_distance,
             "duration": duration,
-            "geometry": "",
+            "geometry": [],
             "fallback": True,
+            "source": "estimate",
         }
 
 

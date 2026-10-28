@@ -8,13 +8,21 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/api/api_service.dart';
+import '../../../core/api/models.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
+import 'place_search_sheet.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
+
+/// CARTO Voyager: readable streets, soft colours, no key required.
+const _baseTiles =
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png';
+const _subdomains = ['a', 'b', 'c', 'd'];
 
 class CityMapScreen extends ConsumerStatefulWidget {
   const CityMapScreen({super.key});
@@ -25,7 +33,6 @@ class CityMapScreen extends ConsumerStatefulWidget {
 
 class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   final _mapController = MapController();
-  final _polygonPoints = <LatLng>[];
 
   LatLng? _pickup;
   LatLng? _dropoff;
@@ -35,12 +42,18 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   String? _locationError;
   bool _showQuote = false;
 
+  MapConfig? _mapConfig;
+  bool _trafficOn = false;
+  bool _followUser = true;
+
   StreamSubscription<Position>? _positionStream;
   DateTime _lastQuoteAt = DateTime.fromMillisecondsSinceEpoch(0);
+  int _reverseId = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadMapConfig();
     _initLocation();
   }
 
@@ -50,10 +63,18 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     super.dispose();
   }
 
+  Future<void> _loadMapConfig() async {
+    try {
+      final config = await ref.read(apiServiceProvider).getMapConfig();
+      if (mounted) setState(() => _mapConfig = config);
+    } catch (_) {
+      // Traffic is optional; the map works without it.
+    }
+  }
+
   Future<void> _initLocation() async {
     setState(() => _loadingLocation = true);
     try {
-      // Check permissions
       var status = await Permission.location.status;
       if (!status.isGranted) {
         status = await Permission.location.request();
@@ -72,31 +93,27 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
         timeLimit: const Duration(seconds: 10),
       );
       final pos = LatLng(position.latitude, position.longitude);
-      if (mounted) {
-        setState(() {
-          _pickup = pos;
-          _pickupAddress =
-              '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
-          _loadingLocation = false;
-        });
-        _mapController.move(pos, 15);
+      if (!mounted) return;
 
-        // Listen to location updates to keep pin near user
-        _positionStream = Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 10,
-          ),
-        ).listen((p) {
-          if (!mounted) return;
-          setState(() {
-            _pickup = LatLng(p.latitude, p.longitude);
-            _pickupAddress =
-                '${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}';
-          });
-          _updateRoute();
-        });
-      }
+      setState(() {
+        _pickup = pos;
+        _pickupAddress = _coords(pos);
+        _loadingLocation = false;
+      });
+      _mapController.move(pos, 15);
+      _describe(pos, isPickup: true);
+
+      _positionStream = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 15,
+        ),
+      ).listen((p) {
+        if (!mounted || !_followUser) return;
+        final next = LatLng(p.latitude, p.longitude);
+        setState(() => _pickup = next);
+        _updateRoute();
+      });
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
@@ -108,76 +125,113 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     }
   }
 
-  void _onMapTap(TapPosition _, LatLng point) {
-    setState(() {
-      if (_pickup == null) {
-        _pickup = point;
-        _pickupAddress =
-            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-      } else if (_dropoff == null) {
-        _dropoff = point;
-        _dropoffAddress =
-            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-      } else {
-        // Both set — tapping again resets dropoff
-        _dropoff = point;
-        _dropoffAddress =
-            '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-      }
-    });
-    _updateRoute();
+  static String _coords(LatLng point) =>
+      '${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+
+  static String _label(PlaceSuggestion place) {
+    final title = place.title;
+    if (title.isEmpty) return place.fullAddress;
+    return title;
   }
 
-  Future<void> _updateRoute() async {
-    if (_pickup != null && _dropoff != null) {
-      // Visual line only; real distance/price come from the backend (OSRM).
-      final start = _pickup!;
-      final end = _dropoff!;
-      final points = <LatLng>[];
-      const steps = 20;
-      for (var i = 0; i <= steps; i++) {
-        final t = i / steps;
-        final lat = start.latitude + (end.latitude - start.latitude) * t;
-        final lng = start.longitude + (end.longitude - start.longitude) * t;
-        points.add(LatLng(lat, lng));
-      }
+  Future<void> _describe(LatLng point, {required bool isPickup}) async {
+    final id = ++_reverseId;
+    try {
+      final place =
+          await ref.read(apiServiceProvider).reversePlace(point.latitude, point.longitude);
+      if (!mounted || id != _reverseId) return;
+      if (place == null) return;
       setState(() {
-        _polygonPoints
-          ..clear()
-          ..addAll(points);
-        _showQuote = true;
+        if (isPickup) {
+          _pickupAddress = _label(place);
+        } else {
+          _dropoffAddress = _label(place);
+        }
       });
+      _updateRoute(force: true);
+    } catch (_) {
+      // Keep the coordinate label if reverse geocoding failed.
+    }
+  }
 
-      // The bottom sheet reads the quote from this provider; without this
-      // request it would spin forever and the order button never appears.
-      final now = DateTime.now();
-      if (now.difference(_lastQuoteAt) < const Duration(seconds: 8)) return;
-      _lastQuoteAt = now;
-      ref.read(quoteProvider.notifier).state = null;
-      try {
-        await ref.read(cityRideNotifierProvider.notifier).quote(
-              pickupAddress: _pickupAddress,
-              pickupLat: start.latitude,
-              pickupLng: start.longitude,
-              dropoffAddress: _dropoffAddress,
-              dropoffLat: end.latitude,
-              dropoffLng: end.longitude,
-            );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Не удалось рассчитать стоимость: $e'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-      }
-    } else {
+  void _setDropoff(LatLng point, {String? address}) {
+    setState(() {
+      _dropoff = point;
+      _dropoffAddress = address ?? _coords(point);
+    });
+    _updateRoute();
+    if (address == null) _describe(point, isPickup: false);
+  }
+
+  void _onMapTap(TapPosition _, LatLng point) {
+    if (_pickup == null) {
       setState(() {
-        _polygonPoints.clear();
-        _showQuote = false;
+        _pickup = point;
+        _pickupAddress = _coords(point);
       });
+      _describe(point, isPickup: true);
+      return;
+    }
+    _setDropoff(point);
+  }
+
+  Future<void> _pickPlace({required bool isPickup}) async {
+    final place = await showPlaceSearch(
+      context,
+      title: isPickup ? 'Откуда поедем' : 'Куда едем',
+      near: _pickup,
+    );
+    if (place == null || !mounted) return;
+    final point = LatLng(place.lat, place.lng);
+    if (isPickup) {
+      _followUser = false;
+      _positionStream?.cancel();
+    }
+    setState(() {
+      if (isPickup) {
+        _pickup = point;
+        _pickupAddress = _label(place);
+      } else {
+        _dropoff = point;
+        _dropoffAddress = _label(place);
+      }
+    });
+    _mapController.move(point, isPickup ? 15 : _mapController.camera.zoom);
+    _updateRoute(force: true);
+  }
+
+  Future<void> _updateRoute({bool force = false}) async {
+    if (_pickup == null || _dropoff == null) {
+      setState(() => _showQuote = false);
       ref.read(quoteProvider.notifier).state = null;
+      return;
+    }
+
+    setState(() => _showQuote = true);
+
+    final now = DateTime.now();
+    if (!force && now.difference(_lastQuoteAt) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastQuoteAt = now;
+    ref.read(quoteProvider.notifier).state = null;
+    try {
+      await ref.read(cityRideNotifierProvider.notifier).quote(
+            pickupAddress: _pickupAddress,
+            pickupLat: _pickup!.latitude,
+            pickupLng: _pickup!.longitude,
+            dropoffAddress: _dropoffAddress,
+            dropoffLat: _dropoff!.latitude,
+            dropoffLng: _dropoff!.longitude,
+          );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Не удалось рассчитать стоимость: $e'),
+          backgroundColor: AppTheme.error,
+        ),
+      );
     }
   }
 
@@ -193,9 +247,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
         dropoffLat: _dropoff!.latitude,
         dropoffLng: _dropoff!.longitude,
       );
-      if (mounted) {
-        context.go('/rides/${ride.id}');
-      }
+      if (mounted) context.go('/rides/${ride.id}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -212,10 +264,22 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
     setState(() {
       _dropoff = null;
       _dropoffAddress = '';
-      _polygonPoints.clear();
       _showQuote = false;
     });
     ref.read(quoteProvider.notifier).state = null;
+  }
+
+  List<LatLng> _routePoints(RideQuote? quote) {
+    final geometry = quote?.routeGeometry ?? const [];
+    if (geometry.length >= 2) {
+      return geometry
+          .where((p) => p.length >= 2)
+          .map((p) => LatLng(p[0], p[1]))
+          .toList();
+    }
+    if (_pickup == null || _dropoff == null) return const [];
+    // Visual fallback only — production quotes always carry a road geometry.
+    return [_pickup!, _dropoff!];
   }
 
   List<Marker> _buildMarkers() {
@@ -238,11 +302,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                 gradient: AppTheme.brandGradient,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.my_location,
-                color: Colors.white,
-                size: 18,
-              ),
+              child: const Icon(Icons.my_location, color: Colors.white, size: 18),
             ),
           ),
         ),
@@ -261,11 +321,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: AppTheme.floatShadow,
             ),
-            child: const Icon(
-              Icons.flag_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
+            child: const Icon(Icons.flag_rounded, color: Colors.white, size: 20),
           ),
         ),
       );
@@ -276,49 +332,82 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final quote = ref.watch(quoteProvider);
+    final route = _routePoints(quote);
+    final traffic = quote?.congestion ?? 'unknown';
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       body: Stack(
         children: [
-          // Map, desaturated a little so the brand overlays read clearly.
-          ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              0.86, 0.08, 0.06, 0, 6,
-              0.06, 0.88, 0.06, 0, 6,
-              0.06, 0.08, 0.86, 0, 6,
-              0, 0, 0, 1, 0,
-            ]),
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _pickup ?? _bishkek,
-                initialZoom: 14,
-                onTap: _onMapTap,
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _pickup ?? _bishkek,
+              initialZoom: 14,
+              minZoom: 10,
+              maxZoom: 18,
+              onTap: _onMapTap,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: _baseTiles,
+                subdomains: _subdomains,
+                userAgentPackageName: 'kg.qadam.passenger',
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'kg.qadam.passenger',
+              if (_trafficOn && (_mapConfig?.hasTraffic ?? false))
+                Opacity(
+                  opacity: 0.75,
+                  child: TileLayer(
+                    urlTemplate: _mapConfig!.trafficTileUrl,
+                    subdomains: const [],
+                    userAgentPackageName: 'kg.qadam.passenger',
+                  ),
                 ),
-                PolylineLayer(
-                  polylines: [
-                    if (_polygonPoints.isNotEmpty)
-                      Polyline(
-                        points: _polygonPoints,
-                        color: AppTheme.primary,
-                        strokeWidth: 5,
-                        borderColor: Colors.white,
-                        borderStrokeWidth: 2,
-                      ),
-                  ],
+              PolylineLayer(
+                polylines: [
+                  if (route.isNotEmpty)
+                    Polyline(
+                      points: route,
+                      color: _trafficColor(traffic),
+                      strokeWidth: 6,
+                      borderColor: Colors.white,
+                      borderStrokeWidth: 3,
+                    ),
+                ],
+              ),
+              MarkerLayer(markers: _buildMarkers()),
+              RichAttributionWidget(
+                alignment: AttributionAlignment.bottomLeft,
+                attributions: [
+                  TextSourceAttribution('OpenStreetMap'),
+                  if (!_trafficOn) TextSourceAttribution('CARTO'),
+                ],
+              ),
+            ],
+          ),
+
+          // Address card
+          Positioned(
+            left: 16,
+            right: 16,
+            top: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _AddressCard(
+                  pickup: _pickupAddress,
+                  dropoff: _dropoffAddress,
+                  hasDropoff: _dropoff != null,
+                  onPickup: () => _pickPlace(isPickup: true),
+                  onDropoff: () => _pickPlace(isPickup: false),
+                  onClear: _resetRoute,
                 ),
-                MarkerLayer(markers: _buildMarkers()),
-              ],
+              ),
             ),
           ),
 
-          // Location loading / error
           if (_loadingLocation)
             const Center(
               child: QadamCard(
@@ -368,124 +457,54 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
               ),
             ),
 
-          // Route card
+          // Controls + quote live in one bottom column so they can never
+          // overlap each other, whatever the sheet height is.
           Positioned(
-            left: 16,
-            right: 16,
-            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: QadamCard(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-                  radius: 22,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: const BoxDecoration(
-                              gradient: AppTheme.brandGradient,
-                              shape: BoxShape.circle,
-                            ),
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (_mapConfig?.hasTraffic ?? false) ...[
+                          _MapChip(
+                            icon: Icons.traffic_rounded,
+                            label: 'Пробки',
+                            active: _trafficOn,
+                            onTap: () =>
+                                setState(() => _trafficOn = !_trafficOn),
                           ),
-                          Container(
-                            width: 2,
-                            height: 26,
-                            color: AppTheme.divider,
-                          ),
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: const BoxDecoration(
-                              color: AppTheme.ink,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                          const SizedBox(width: 10),
                         ],
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _RouteLine(
-                              label: l10n.pickupPoint,
-                              value: _pickupAddress.isEmpty
-                                  ? '—'
-                                  : _pickupAddress,
-                            ),
-                            const SizedBox(height: 14),
-                            _RouteLine(
-                              label: l10n.destination,
-                              value: _dropoff == null
-                                  ? 'Нажмите на карту'
-                                  : _dropoffAddress,
-                              muted: _dropoff == null,
-                            ),
-                          ],
+                        _RoundMapButton(
+                          icon: Icons.my_location_rounded,
+                          onTap: () {
+                            if (_pickup != null) {
+                              _mapController.move(_pickup!, 15);
+                            }
+                          },
                         ),
-                      ),
-                      if (_dropoff != null)
-                        IconButton(
-                          onPressed: _resetRoute,
-                          icon: const Icon(Icons.close_rounded, size: 20),
-                          color: AppTheme.textSecondary,
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          // Bottom sheet with route info
-          if (_showQuote && _pickup != null && _dropoff != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _RouteBottomSheet(
-                pickupAddress: _pickupAddress,
-                dropoffAddress: _dropoffAddress,
-                onOrder: _orderRide,
-                onChangePoints: _resetRoute,
-              ),
-            ),
-
-          // Recenter button
-          Positioned(
-            bottom: _showQuote ? 320 : 24,
-            right: 16,
-            child: Material(
-              color: Colors.white,
-              shape: const CircleBorder(),
-              elevation: 0,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  if (_pickup != null) {
-                    _mapController.move(_pickup!, 15);
-                  }
-                },
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: AppTheme.floatShadow,
-                  ),
-                  child: const Icon(
-                    Icons.my_location_rounded,
-                    size: 20,
-                    color: AppTheme.primary,
-                  ),
-                ),
+                  const SizedBox(height: 10),
+                  if (_showQuote && _pickup != null && _dropoff != null)
+                    _RouteBottomSheet(
+                      pickupAddress: _pickupAddress,
+                      dropoffAddress: _dropoffAddress,
+                      onOrder: _orderRide,
+                      onChangePoints: _resetRoute,
+                    ),
+                  const SizedBox(height: 10),
+                ],
               ),
             ),
           ),
@@ -495,45 +514,234 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   }
 }
 
-class _RouteLine extends StatelessWidget {
-  const _RouteLine({
+Color _trafficColor(String congestion) {
+  return switch (congestion) {
+    'heavy' => AppTheme.error,
+    'moderate' => AppTheme.warning,
+    'free' => AppTheme.success,
+    _ => AppTheme.primary,
+  };
+}
+
+class _AddressCard extends StatelessWidget {
+  const _AddressCard({
+    required this.pickup,
+    required this.dropoff,
+    required this.hasDropoff,
+    required this.onPickup,
+    required this.onDropoff,
+    required this.onClear,
+  });
+
+  final String pickup;
+  final String dropoff;
+  final bool hasDropoff;
+  final VoidCallback onPickup;
+  final VoidCallback onDropoff;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return QadamCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      radius: 22,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.brandGradient,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Container(width: 2, height: 30, color: AppTheme.divider),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppTheme.ink,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              children: [
+                _PlaceRow(
+                  label: 'ОТКУДА',
+                  value: pickup.isEmpty ? 'Моё местоположение' : pickup,
+                  onTap: onPickup,
+                ),
+                const SizedBox(height: 10),
+                _PlaceRow(
+                  label: 'КУДА',
+                  value: hasDropoff ? dropoff : 'Выберите адрес или точку на карте',
+                  muted: !hasDropoff,
+                  onTap: onDropoff,
+                ),
+              ],
+            ),
+          ),
+          if (hasDropoff)
+            IconButton(
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded, size: 20),
+              color: AppTheme.textSecondary,
+              visualDensity: VisualDensity.compact,
+            )
+          else
+            const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceRow extends StatelessWidget {
+  const _PlaceRow({
     required this.label,
     required this.value,
+    required this.onTap,
     this.muted = false,
   });
 
   final String label;
   final String value;
+  final VoidCallback onTap;
   final bool muted;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: AppTheme.textSecondary,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapChip extends StatelessWidget {
+  const _MapChip({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: active ? AppTheme.brandGradient : null,
+            color: active ? null : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: AppTheme.floatShadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: active ? Colors.white : AppTheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: active ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
+      ),
+    );
+  }
+}
+
+class _RoundMapButton extends StatelessWidget {
+  const _RoundMapButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 46,
+          height: 46,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: AppTheme.floatShadow,
           ),
+          child: Icon(icon, size: 20, color: AppTheme.primary),
         ),
-      ],
+      ),
     );
   }
 }
@@ -554,35 +762,22 @@ class _RouteBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final quoteAsync = ref.watch(quoteProvider);
+    final quote = ref.watch(quoteProvider);
 
     return QadamSheet(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        MediaQuery.of(context).padding.bottom + 20,
-      ),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).padding.bottom + 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppTheme.lavender,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.local_taxi_rounded,
-                  color: AppTheme.primary,
-                  size: 24,
-                ),
+              const QadamIconBadge(
+                icon: Icons.local_taxi_rounded,
+                color: AppTheme.primary,
+                size: 44,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -597,10 +792,10 @@ class _RouteBottomSheet extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'Ближайший водитель · ~5 мин',
+                      'Без комиссии для водителя',
                       style: TextStyle(
                         fontFamily: 'Manrope',
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondary,
                       ),
@@ -608,17 +803,14 @@ class _RouteBottomSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-              QadamTag(
-                label: l10n.som,
-                color: AppTheme.secondary,
-                icon: Icons.payments_rounded,
-              ),
+              if (quote != null)
+                _TrafficBadge(congestion: quote.congestion),
             ],
           ),
-          const SizedBox(height: 18),
-          if (quoteAsync == null)
+          const SizedBox(height: 14),
+          if (quote == null)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: 22),
               child: Center(
                 child: SizedBox(
                   width: 26,
@@ -639,15 +831,15 @@ class _RouteBottomSheet extends ConsumerWidget {
                         l10n.rideCost.toUpperCase(),
                         style: const TextStyle(
                           fontFamily: 'Manrope',
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.2,
                           color: AppTheme.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
-                        '${quoteAsync.quotedPrice.toStringAsFixed(0)} ${l10n.som}',
+                        '${quote.quotedPrice.toStringAsFixed(0)} ${l10n.som}',
                         style: const TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 34,
@@ -664,46 +856,126 @@ class _RouteBottomSheet extends ConsumerWidget {
                   children: [
                     _MetricPill(
                       icon: Icons.route_rounded,
-                      value: '${quoteAsync.distanceKm.toStringAsFixed(1)} км',
+                      value: '${quote.distanceKm.toStringAsFixed(1)} км',
                     ),
                     const SizedBox(width: 8),
                     _MetricPill(
                       icon: Icons.schedule_rounded,
-                      value: '~${quoteAsync.durationMin.toStringAsFixed(0)} мин',
+                      value: '~${quote.durationMin.toStringAsFixed(0)} мин',
                     ),
                   ],
                 ),
               ],
             ),
-            if (quoteAsync.surgeMultiplier > 1.0) ...[
-              const SizedBox(height: 12),
-              Row(
+            if (quote.surgeMultiplier > 1.01) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
                 children: [
-                  QadamTag(
-                    label:
-                        '${l10n.surge} ×${quoteAsync.surgeMultiplier.toStringAsFixed(1)}',
-                    color: AppTheme.warning,
-                    icon: Icons.bolt_rounded,
-                  ),
+                  if (quote.demandMultiplier > 1.01)
+                    QadamTag(
+                      label: 'Спрос ×${quote.demandMultiplier.toStringAsFixed(1)}',
+                      color: AppTheme.warning,
+                      icon: Icons.people_alt_rounded,
+                    ),
+                  if (quote.trafficMultiplier > 1.01)
+                    QadamTag(
+                      label: 'Пробки ×${quote.trafficMultiplier.toStringAsFixed(1)}',
+                      color: _trafficColor(quote.congestion),
+                      icon: Icons.traffic_rounded,
+                    ),
                 ],
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+            _FareBreakdown(quote: quote),
+            const SizedBox(height: 14),
             QadamActionButton(
               label: l10n.orderRide,
               onTap: onOrder,
               icon: Icons.arrow_forward_rounded,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             QadamActionButton(
               label: l10n.changeRoute,
               onTap: onChangePoints,
               style: QadamButtonStyle.link,
-              height: 44,
+              height: 40,
             ),
+            if (quote.routeSource == 'estimate')
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Маршрут построен приблизительно',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _FareBreakdown extends StatelessWidget {
+  const _FareBreakdown({required this.quote});
+
+  final RideQuote quote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 15, color: AppTheme.textSecondary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Тариф: 50 сом + 12 сом/км + 2 сом/мин · водитель получает 100%',
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11.5,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrafficBadge extends StatelessWidget {
+  const _TrafficBadge({required this.congestion});
+
+  final String congestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon) = switch (congestion) {
+      'heavy' => ('Пробки', Icons.traffic_rounded),
+      'moderate' => ('Средний трафик', Icons.speed_rounded),
+      'free' => ('Свободно', Icons.bolt_rounded),
+      _ => ('Маршрут', Icons.alt_route_rounded),
+    };
+    return QadamTag(
+      label: label,
+      color: _trafficColor(congestion),
+      icon: icon,
     );
   }
 }
@@ -717,7 +989,7 @@ class _MetricPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(14),
@@ -726,12 +998,12 @@ class _MetricPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 15, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             value,
             style: const TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
             ),

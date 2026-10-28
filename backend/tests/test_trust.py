@@ -5,9 +5,7 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_driver_profile_created_on_first_access(
-    client: AsyncClient, driver_token: str
-):
+async def test_driver_profile_created_on_first_access(client: AsyncClient, driver_token: str):
     resp = await client.get(
         "/api/v1/driver/profile",
         headers={"Authorization": f"Bearer {driver_token}"},
@@ -56,9 +54,7 @@ async def test_upload_document(client: AsyncClient, driver_token: str):
 
 
 @pytest.mark.asyncio
-async def test_cannot_go_online_without_verification(
-    client: AsyncClient, driver_token: str
-):
+async def test_cannot_go_online_without_verification(client: AsyncClient, driver_token: str):
     resp = await client.post(
         "/api/v1/driver/online",
         json={"online": True},

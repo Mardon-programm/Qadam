@@ -20,6 +20,11 @@ class QuoteOut(BaseModel):
     quoted_price: Decimal
     currency: str = "KGS"
     surge_multiplier: Decimal
+    traffic_multiplier: Decimal = Decimal("1")
+    demand_multiplier: Decimal = Decimal("1")
+    congestion: str = "unknown"
+    route_source: str = "estimate"
+    route_geometry: list[list[float]] = Field(default_factory=list)
     platform_fee_estimate: Decimal
     driver_net_estimate: Decimal
 

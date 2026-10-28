@@ -18,6 +18,8 @@ os.environ.setdefault("SECRET_KEY", "test-only-secret-key-at-least-32-chars!")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("PAYMENT_PROVIDER", "mock")
 os.environ.setdefault("SMS_PROVIDER", "console")
+# Keep unit tests offline: routing falls back to the deterministic estimator.
+os.environ.setdefault("OSRM_URL", "http://127.0.0.1:9")
 
 from app.core.database import Base, engine, SessionLocal  # noqa: E402
 import app.core.redis as redis_module  # noqa: E402
@@ -26,10 +28,25 @@ from app.main import app  # noqa: E402
 
 
 TABLES = [
-    "audit_events", "corporate_members", "corporate_accounts", "support_cases",
-    "subscriptions", "payouts", "ledger_entries", "payment_events", "payments",
-    "bookings", "trip_seats", "intercity_trips", "ride_offers", "ride_orders",
-    "driver_documents", "vehicles", "driver_profiles", "refresh_sessions", "users",
+    "audit_events",
+    "corporate_members",
+    "corporate_accounts",
+    "support_cases",
+    "subscriptions",
+    "payouts",
+    "ledger_entries",
+    "payment_events",
+    "payments",
+    "bookings",
+    "trip_seats",
+    "intercity_trips",
+    "ride_offers",
+    "ride_orders",
+    "driver_documents",
+    "vehicles",
+    "driver_profiles",
+    "refresh_sessions",
+    "users",
 ]
 
 
@@ -43,9 +60,7 @@ async def isolate_tests():
     await redis.flushdb()
 
     async with engine.begin() as conn:
-        await conn.execute(
-            text("TRUNCATE " + ", ".join(TABLES) + " RESTART IDENTITY CASCADE")
-        )
+        await conn.execute(text("TRUNCATE " + ", ".join(TABLES) + " RESTART IDENTITY CASCADE"))
     yield
     await close_redis()
     redis_module._redis = None

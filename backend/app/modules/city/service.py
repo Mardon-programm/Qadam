@@ -1,9 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.enums import (
     DriverOnlineStatus,
     RideOrderStatus,
@@ -15,6 +16,41 @@ from app.modules.pricing.service import estimate_route, quote_city_fare
 from app.modules.trust.models import DriverProfile, Vehicle
 
 
+async def demand_multiplier(db: AsyncSession | None) -> float:
+    """
+    Light, fair demand pricing: only unmet demand (searching/offered rides)
+    relative to drivers who can actually take an order raises the price.
+    """
+    if db is None:
+        return 1.0
+
+    settings = get_settings()
+    online = await db.scalar(
+        select(func.count())
+        .select_from(DriverProfile)
+        .where(
+            DriverProfile.online_status == DriverOnlineStatus.ONLINE,
+            DriverProfile.verification_status == VerificationStatus.APPROVED,
+            DriverProfile.active_vehicle_id.is_not(None),
+        )
+    )
+    if not online:
+        return 1.0
+
+    window_start = datetime.now(UTC) - timedelta(minutes=15)
+    waiting = await db.scalar(
+        select(func.count())
+        .select_from(RideOrder)
+        .where(
+            RideOrder.status.in_([RideOrderStatus.SEARCHING, RideOrderStatus.OFFERED]),
+            RideOrder.created_at >= window_start,
+        )
+    )
+    ratio = float(waiting or 0) / float(online)
+    factor = 1.0 + 0.2 * max(0.0, ratio - 0.5)
+    return min(factor, settings.city_demand_cap)
+
+
 async def create_quote(
     *,
     pickup_lat: float,
@@ -22,9 +58,26 @@ async def create_quote(
     dropoff_lat: float,
     dropoff_lng: float,
     surge: float = 1.0,
+    db: AsyncSession | None = None,
 ) -> dict:
-    distance, duration = await estimate_route(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
-    return quote_city_fare(distance_km=distance, duration_min=duration, surge=surge)
+    settings = get_settings()
+    route = await estimate_route(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
+    demand = await demand_multiplier(db)
+    # Traffic makes trips slower, demand makes cars scarce. Weight traffic at
+    # 60% so a normal red light does not turn into a price spike.
+    traffic_price = 1.0 + (route.traffic_factor - 1.0) * 0.6
+    final_surge = min(max(surge, 1.0) * demand * traffic_price, settings.city_surge_cap)
+    return quote_city_fare(
+        distance_km=route.distance_km,
+        duration_min=route.duration_min,
+        surge=final_surge,
+        traffic_factor=route.traffic_factor,
+        demand_factor=demand,
+    ) | {
+        "route_geometry": route.geometry,
+        "route_source": route.source,
+        "congestion": route.congestion,
+    }
 
 
 async def create_ride_order(
@@ -54,6 +107,7 @@ async def create_ride_order(
         dropoff_lat=dropoff_lat,
         dropoff_lng=dropoff_lng,
         surge=surge,
+        db=db,
     )
     order = RideOrder(
         passenger_id=passenger_id,

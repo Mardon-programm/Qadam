@@ -30,7 +30,9 @@ async def test_city_quote_endpoint(client: AsyncClient, auth_headers: dict):
 
 
 @pytest.mark.asyncio
-async def test_dispatch_algorithm_ranks_by_eta_and_reliability(approved_driver, another_approved_driver):
+async def test_dispatch_algorithm_ranks_by_eta_and_reliability(
+    approved_driver, another_approved_driver
+):
     """Test that dispatch considers both ETA and reliability."""
     async with SessionLocal() as db:
         # Set different positions and reliability scores

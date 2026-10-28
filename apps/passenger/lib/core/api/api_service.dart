@@ -95,6 +95,41 @@ class ApiService {
         .toList();
   }
 
+  // ── Geo / maps ─────────────────────────────────────────────────────────────
+
+  Future<MapConfig> getMapConfig() async {
+    final r = await _dio.get('/geo/map-config');
+    return MapConfig.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<List<PlaceSuggestion>> searchPlaces(
+    String query, {
+    double? lat,
+    double? lng,
+    int limit = 6,
+  }) async {
+    final r = await _dio.get('/geo/search', queryParameters: {
+      'q': query,
+      'limit': limit,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+    });
+    final items = (r.data as Map<String, dynamic>)['items'] as List? ?? [];
+    return items
+        .map((e) => PlaceSuggestion.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PlaceSuggestion?> reversePlace(double lat, double lng) async {
+    final r = await _dio.get('/geo/reverse', queryParameters: {
+      'lat': lat,
+      'lng': lng,
+    });
+    final place = (r.data as Map<String, dynamic>)['place'];
+    if (place is! Map) return null;
+    return PlaceSuggestion.fromJson(place.cast<String, dynamic>());
+  }
+
   Future<RideOrder> cancelRide(String rideId, {String reason = 'user_cancelled'}) async {
     final r = await _dio.post('/city/rides/$rideId/cancel', data: {'reason': reason});
     return RideOrder.fromJson(r.data as Map<String, dynamic>);

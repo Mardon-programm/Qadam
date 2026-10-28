@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
     # ── Routers ────────────────────────────────────────────────────────────────
     from app.modules.city.router import router as city_router
     from app.modules.corporate.router import router as corporate_router
+    from app.modules.geo.router import router as geo_router
     from app.modules.identity.router import router as identity_router
     from app.modules.ops.router import router as ops_router
     from app.modules.payments.router import router as payments_router
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(payments_router, prefix=api_prefix)
     app.include_router(ops_router, prefix=api_prefix)
     app.include_router(corporate_router, prefix=api_prefix)
+    app.include_router(geo_router, prefix=api_prefix)
 
     # ── Health check ───────────────────────────────────────────────────────────
     @app.get("/health", tags=["health"])

@@ -41,13 +41,14 @@ def _ride_out(order: RideOrder) -> RideOut:
 
 
 @router.post("/quote", response_model=QuoteOut)
-async def quote(body: QuoteIn) -> QuoteOut:
+async def quote(body: QuoteIn, db: DbSession) -> QuoteOut:
     data = await service.create_quote(
         pickup_lat=body.pickup_lat,
         pickup_lng=body.pickup_lng,
         dropoff_lat=body.dropoff_lat,
         dropoff_lng=body.dropoff_lng,
         surge=body.surge,
+        db=db,
     )
     return QuoteOut(currency="KGS", **data)
 
@@ -202,21 +203,32 @@ async def cancel(
 async def my_offers(db: DbSession, user: CurrentUser):
     driver = await get_or_create_driver_profile(db, user.id)
     result = await db.execute(
-        select(RideOffer).where(
+        select(RideOffer, RideOrder)
+        .join(RideOrder, RideOrder.id == RideOffer.ride_order_id)
+        .where(
             RideOffer.driver_id == driver.id,
             RideOffer.status == "offered",
         )
+        .order_by(RideOffer.created_at.desc())
     )
-    offers = result.scalars().all()
     return [
         {
-            "id": o.id,
-            "ride_order_id": o.ride_order_id,
-            "eta_min": o.eta_min,
-            "net_estimate": o.net_estimate,
-            "expires_at": o.expires_at,
+            "id": offer.id,
+            "ride_order_id": offer.ride_order_id,
+            "eta_min": offer.eta_min,
+            "net_estimate": offer.net_estimate,
+            "expires_at": offer.expires_at,
+            "pickup_address": order.pickup_address,
+            "pickup_lat": float(order.pickup_lat),
+            "pickup_lng": float(order.pickup_lng),
+            "dropoff_address": order.dropoff_address,
+            "dropoff_lat": float(order.dropoff_lat),
+            "dropoff_lng": float(order.dropoff_lng),
+            "quoted_price": order.quoted_price,
+            "distance_km": order.distance_km,
+            "duration_min": order.duration_min,
         }
-        for o in offers
+        for offer, order in result.all()
     ]
 
 

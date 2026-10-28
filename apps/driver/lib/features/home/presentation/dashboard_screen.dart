@@ -478,63 +478,138 @@ class _OfferCard extends StatelessWidget {
   final Map<String, dynamic> offer;
   final VoidCallback onTap;
 
+  String _addr(dynamic v) => (v as String? ?? '').trim().isEmpty ? '—' : v as String;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final net = offer['net_estimate'];
     final eta = offer['eta_min'];
+    final price = offer['quoted_price'];
+    final pickup = _addr(offer['pickup_address']);
+    final dropoff = _addr(offer['dropoff_address']);
 
     return QadamCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: const BoxDecoration(
-              gradient: AppTheme.brandGradient,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.newOrder,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.brandGradient,
+                  shape: BoxShape.circle,
                 ),
-                if (eta != null)
-                  Text(
-                    '${l10n.toPassenger}: ~$eta мин',
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
+                child: const Icon(
+                  Icons.local_taxi_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.newOrder,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    if (eta != null)
+                      Text(
+                        '${l10n.toPassenger}: ~$eta мин',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (net != null)
+                QadamTag(
+                  label: '$net ${l10n.som}',
+                  color: AppTheme.earningsGreen,
+                  background: AppTheme.mint,
+                ),
+              if (price != null && net == null)
+                QadamTag(
+                  label: '$price ${l10n.som}',
+                  color: AppTheme.primary,
+                  background: AppTheme.lavender,
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      gradient: AppTheme.brandGradient,
+                      shape: BoxShape.circle,
                     ),
                   ),
-              ],
-            ),
+                  Container(width: 2, height: 18, color: AppTheme.divider),
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.ink,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pickup,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dropoff,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+            ],
           ),
-          if (net != null)
-            QadamTag(
-              label: '~$net ${l10n.som}',
-              color: AppTheme.earningsGreen,
-              background: AppTheme.mint,
-            ),
         ],
       ),
     );

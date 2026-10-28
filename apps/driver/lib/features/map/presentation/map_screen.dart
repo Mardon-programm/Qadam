@@ -15,6 +15,11 @@ import '../../../shared/widgets/qadam_ui.dart';
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
 
+/// CARTO Voyager: readable streets, soft colours, no key required.
+const _baseTiles =
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png';
+const _subdomains = ['a', 'b', 'c', 'd'];
+
 final isOnlineProvider = StateProvider<bool>((ref) => false);
 final offersProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
 
@@ -32,17 +37,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   StreamSubscription<Position>? _positionStream;
   LatLng? _driverPosition;
 
+  String? _selectedOfferId;
+  List<LatLng> _approachRoute = const [];
+  bool _routeLoading = false;
+  Timer? _offersTimer;
+  String? _trafficTileUrl;
+
   @override
   void initState() {
     super.initState();
     _initLocation();
     _loadOffers();
+    _loadTraffic();
+    _offersTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      _loadOffers();
+    });
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
+    _offersTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadTraffic() async {
+    try {
+      final url = await ref.read(driverApiProvider).getTrafficTileUrl();
+      if (mounted) setState(() => _trafficTileUrl = url);
+    } catch (_) {}
   }
 
   Future<void> _initLocation() async {
@@ -75,6 +99,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ).listen((p) {
         if (!mounted) return;
         setState(() => _driverPosition = LatLng(p.latitude, p.longitude));
+        if (_selectedOfferId != null) _fitToRoute();
       });
     } catch (e) {
       if (mounted) setState(() => _driverPosition = _bishkek);
@@ -85,10 +110,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     try {
       final api = ref.read(driverApiProvider);
       final offers = await api.getOffers();
-      if (mounted) {
-        setState(() => _loading = false);
-        ref.read(offersProvider.notifier).state =
-            List<Map<String, dynamic>>.from(offers);
+      if (!mounted) return;
+      final list = List<Map<String, dynamic>>.from(offers);
+      setState(() => _loading = false);
+      ref.read(offersProvider.notifier).state = list;
+      if (_selectedOfferId != null) {
+        final stillExists = list.any((o) =>
+            o['ride_order_id'] == _selectedOfferId ||
+            o['id'] == _selectedOfferId);
+        if (!stillExists) {
+          setState(() {
+            _selectedOfferId = null;
+            _approachRoute = const [];
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -117,7 +152,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             backgroundColor: AppTheme.secondary,
           ),
         );
-        if (newVal == true) _loadOffers();
+        if (newVal == true) {
+          _loadOffers();
+        } else {
+          setState(() {
+            _selectedOfferId = null;
+            _approachRoute = const [];
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -126,6 +168,67 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         );
       }
     }
+  }
+
+  Future<void> _selectOffer(Map<String, dynamic> offer) async {
+    final rideId = offer['ride_order_id'] as String?;
+    if (rideId == null || _driverPosition == null) return;
+
+    final pickupLat = offer['pickup_lat'];
+    final pickupLng = offer['pickup_lng'];
+    if (pickupLat == null || pickupLng == null) {
+      // Fallback: old offers without coords still open the offer screen.
+      context.push('/dashboard/offer/$rideId');
+      return;
+    }
+
+    setState(() {
+      _selectedOfferId = rideId;
+      _routeLoading = true;
+      _approachRoute = const [];
+    });
+
+    try {
+      final route = await ref.read(driverApiProvider).getRoute(
+            fromLat: _driverPosition!.latitude,
+            fromLng: _driverPosition!.longitude,
+            toLat: (pickupLat as num).toDouble(),
+            toLng: (pickupLng as num).toDouble(),
+          );
+      final geom = route['geometry'] as List?;
+      final points = <LatLng>[];
+      if (geom != null) {
+        for (final p in geom) {
+          if (p is List && p.length >= 2) {
+            points.add(LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()));
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _approachRoute = points;
+        _routeLoading = false;
+      });
+      _fitToRoute();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _routeLoading = false);
+    }
+  }
+
+  void _fitToRoute() {
+    final points = <LatLng>[
+      if (_driverPosition != null) _driverPosition!,
+      ..._approachRoute,
+    ];
+    if (points.length < 2) return;
+    final bounds = LatLngBounds.fromPoints(points);
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.fromLTRB(60, 160, 60, 320),
+      ),
+    );
   }
 
   Future<void> _acceptOffer(String rideOrderId) async {
@@ -139,8 +242,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             backgroundColor: AppTheme.secondary,
           ),
         );
+        setState(() {
+          _selectedOfferId = null;
+          _approachRoute = const [];
+        });
         _loadOffers();
-        context.go('/dashboard');
+        context.go('/dashboard/ride/$rideOrderId');
       }
     } catch (e) {
       if (mounted) {
@@ -151,47 +258,87 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  List<Marker> _buildOfferMarkers() {
+  List<Marker> _buildMarkers() {
     final markers = <Marker>[];
-    final offers = ref.read(offersProvider);
+    if (_driverPosition != null) {
+      markers.add(
+        Marker(
+          point: _driverPosition!,
+          width: 56,
+          height: 56,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: ref.watch(isOnlineProvider)
+                  ? AppTheme.brandGradient
+                  : AppTheme.deepGradient,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: AppTheme.floatShadow,
+            ),
+            child: const Icon(
+              Icons.local_taxi_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final offers = ref.watch(offersProvider);
+    final isOnline = ref.watch(isOnlineProvider);
+    if (!isOnline) return markers;
+
     for (final offer in offers) {
       final rideId = offer['ride_order_id'] as String?;
       if (rideId == null) continue;
-      // Use offer index as pseudo-location offset so markers don't overlap exactly
-      final idx = offers.indexOf(offer);
-      final lat = _bishkek.latitude + (idx % 3) * 0.01 - 0.01;
-      final lng = _bishkek.longitude + (idx ~/ 3) * 0.01 - 0.01;
+      final pickupLat = offer['pickup_lat'];
+      final pickupLng = offer['pickup_lng'];
+      LatLng point;
+      if (pickupLat != null && pickupLng != null) {
+        point = LatLng((pickupLat as num).toDouble(), (pickupLng as num).toDouble());
+      } else {
+        final idx = offers.indexOf(offer);
+        point = LatLng(
+          _bishkek.latitude + (idx % 3) * 0.01 - 0.01,
+          _bishkek.longitude + (idx ~/ 3) * 0.01 - 0.01,
+        );
+      }
+
+      final selected = rideId == _selectedOfferId;
       markers.add(
         Marker(
-          point: LatLng(lat, lng),
-          width: 52,
-          height: 52,
+          point: point,
+          width: selected ? 62 : 54,
+          height: selected ? 62 : 54,
           child: GestureDetector(
-            onTap: () => _acceptOffer(rideId),
-            child: Container(
+            onTap: () => _selectOffer(offer),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
               decoration: BoxDecoration(
-                gradient: AppTheme.brandGradient,
+                gradient: selected ? AppTheme.sunGradient : AppTheme.brandGradient,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2.5),
+                border: Border.all(color: Colors.white, width: selected ? 3 : 2.5),
                 boxShadow: AppTheme.floatShadow,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.local_taxi_rounded,
+                  Icon(
+                    selected ? Icons.navigation_rounded : Icons.location_on_rounded,
                     color: Colors.white,
-                    size: 19,
+                    size: selected ? 22 : 19,
                   ),
-                  Text(
-                    '~${offer['eta_min'] ?? 0}',
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
+                  if (!selected)
+                    Text(
+                      '~${offer['eta_min'] ?? 0}м',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -202,63 +349,73 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return markers;
   }
 
+  Map<String, dynamic>? _selectedOffer() {
+    final offers = ref.read(offersProvider);
+    for (final o in offers) {
+      if (o['ride_order_id'] == _selectedOfferId) return o;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOnline = ref.watch(isOnlineProvider);
     final offers = ref.watch(offersProvider);
+    final selected = _selectedOffer();
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
       body: Stack(
         children: [
-          ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              0.88, 0, 0, 0, 18,
-              0, 0.91, 0, 0, 16,
-              0, 0, 0.96, 0, 10,
-              0, 0, 0, 1, 0,
-            ]),
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _driverPosition ?? _bishkek,
-                initialZoom: 14,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.qadam.driver',
-                ),
-                if (_driverPosition != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _driverPosition!,
-                        width: 54,
-                        height: 54,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: isOnline
-                                ? AppTheme.brandGradient
-                                : AppTheme.deepGradient,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: AppTheme.floatShadow,
-                          ),
-                          child: const Icon(
-                            Icons.local_taxi_rounded,
-                            color: Colors.white,
-                            size: 26,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                if (isOnline && offers.isNotEmpty)
-                  MarkerLayer(markers: _buildOfferMarkers()),
-              ],
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _driverPosition ?? _bishkek,
+              initialZoom: 14,
+              minZoom: 10,
+              maxZoom: 18,
+              onTap: (_, __) {
+                if (_selectedOfferId != null) {
+                  setState(() {
+                    _selectedOfferId = null;
+                    _approachRoute = const [];
+                  });
+                }
+              },
             ),
+            children: [
+              TileLayer(
+                urlTemplate: _baseTiles,
+                subdomains: _subdomains,
+                userAgentPackageName: 'kg.qadam.driver',
+              ),
+              if (_trafficTileUrl != null && _trafficTileUrl!.isNotEmpty)
+                Opacity(
+                  opacity: 0.7,
+                  child: TileLayer(
+                    urlTemplate: _trafficTileUrl,
+                    subdomains: const [],
+                    userAgentPackageName: 'kg.qadam.driver',
+                  ),
+                ),
+              PolylineLayer(
+                polylines: [
+                  if (_approachRoute.isNotEmpty)
+                    Polyline(
+                      points: _approachRoute,
+                      color: AppTheme.warning,
+                      strokeWidth: 7,
+                      borderColor: Colors.white,
+                      borderStrokeWidth: 3,
+                    ),
+                ],
+              ),
+              MarkerLayer(markers: _buildMarkers()),
+              const RichAttributionWidget(
+                alignment: AttributionAlignment.bottomLeft,
+                attributions: [TextSourceAttribution('OpenStreetMap'), TextSourceAttribution('CARTO')],
+              ),
+            ],
           ),
 
           // Top bar
@@ -302,10 +459,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
 
-          // Loading / error
-          if (_loading)
+          if (_loading && _driverPosition == null)
             const Center(child: CircularProgressIndicator())
-          else if (_error != null && offers.isEmpty)
+          else if (_error != null && offers.isEmpty && !isOnline)
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -341,8 +497,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
-          // Active offers count badge
-          if (isOnline && offers.isNotEmpty)
+          if (isOnline && offers.isNotEmpty && _selectedOfferId == null)
             Positioned(
               top: MediaQuery.of(context).padding.top + 82,
               left: 16,
@@ -368,12 +523,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Доступно заказов: ${offers.length}',
+                        'Доступно заказов: ${offers.length} · Нажмите на маркер для выбора',
                         style: const TextStyle(
                           fontFamily: 'Manrope',
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
+                          height: 1.3,
                         ),
                       ),
                     ),
@@ -395,52 +551,264 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
-          // Recenter button
-          Positioned(
-            bottom: offers.isNotEmpty && isOnline ? 100 : 24,
-            right: 16,
-            child: Material(
-              color: Colors.white,
-              shape: const CircleBorder(),
-              elevation: 4,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  if (_driverPosition != null) {
-                    _mapController.move(_driverPosition!, 15);
-                  }
+          if (_selectedOfferId != null && selected != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 14,
+              child: _OfferPreviewCard(
+                offer: selected,
+                loadingRoute: _routeLoading,
+                onAccept: () => _acceptOffer(_selectedOfferId!),
+                onDetails: () => context.push('/dashboard/offer/$_selectedOfferId'),
+                onClose: () {
+                  setState(() {
+                    _selectedOfferId = null;
+                    _approachRoute = const [];
+                  });
                 },
-                child: const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(
-                    Icons.my_location_rounded,
-                    size: 21,
-                    color: AppTheme.primary,
+              ),
+            ),
+
+          Positioned(
+            bottom: (_selectedOfferId != null) ? 220 : (offers.isNotEmpty && isOnline ? 110 : 24),
+            right: 16,
+            child: _RoundMapButton(
+              icon: Icons.my_location_rounded,
+              onTap: () {
+                if (_selectedOfferId != null && _approachRoute.isNotEmpty && _driverPosition != null) {
+                  _fitToRoute();
+                  return;
+                }
+                if (_driverPosition != null) {
+                  _mapController.move(_driverPosition!, 16);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundMapButton extends StatelessWidget {
+  const _RoundMapButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: AppTheme.floatShadow,
+          ),
+          child: Icon(icon, size: 21, color: AppTheme.primary),
+        ),
+      ),
+    );
+  }
+}
+
+class _OfferPreviewCard extends StatelessWidget {
+  const _OfferPreviewCard({
+    required this.offer,
+    required this.loadingRoute,
+    required this.onAccept,
+    required this.onDetails,
+    required this.onClose,
+  });
+
+  final Map<String, dynamic> offer;
+  final bool loadingRoute;
+  final VoidCallback onAccept;
+  final VoidCallback onDetails;
+  final VoidCallback onClose;
+
+  String _addr(dynamic v) => (v as String? ?? '').trim().isEmpty ? '—' : v as String;
+
+  @override
+  Widget build(BuildContext context) {
+    final net = offer['net_estimate'];
+    final eta = offer['eta_min'];
+    final price = offer['quoted_price'];
+    final dist = offer['distance_km'];
+
+    return QadamSheet(
+      padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const QadamIconBadge(
+                icon: Icons.route_rounded,
+                color: AppTheme.warning,
+                size: 44,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Новый заказ · Маршрут к пассажиру',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
-            ),
+              IconButton(
+                onPressed: onClose,
+                icon: const Icon(Icons.close_rounded),
+                color: AppTheme.textSecondary,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
-
-          // Accept first offer
-          if (offers.isNotEmpty && isOnline)
-            Positioned(
-              bottom: 24,
-              left: 16,
-              right: 16,
-              child: QadamActionButton(
-                label: 'Взять заказ',
-                icon: Icons.check_rounded,
-                onTap: () {
-                  final first = offers.first;
-                  final rideId = first['ride_order_id'] as String?;
-                  if (rideId != null) _acceptOffer(rideId);
-                },
+          const SizedBox(height: 10),
+          _RouteLine(label: 'Откуда', value: _addr(offer['pickup_address'])),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: Divider(height: 1, color: AppTheme.divider),
+          ),
+          _RouteLine(label: 'Куда', value: _addr(offer['dropoff_address'])),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              if (net != null)
+                QadamTag(label: '$net сом · Ваш заработок', color: AppTheme.earningsGreen, background: AppTheme.mint),
+              if (price != null)
+                QadamTag(label: 'Заказ $price сом', color: AppTheme.primary, background: AppTheme.lavender),
+              if (eta != null) QadamTag(label: 'К пассажиру ~$eta мин', color: AppTheme.warning),
+              if (dist != null) QadamTag(label: 'Поездка ${dist} км', color: AppTheme.textSecondary),
+            ],
+          ),
+          if (loadingRoute)
+            const Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: Row(
+                children: [
+                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Прокладываем маршрут по дорогам...',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: QadamActionButton(
+                  label: 'Подробнее',
+                  onTap: onDetails,
+                  style: QadamButtonStyle.soft,
+                  height: 50,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: QadamActionButton(
+                  label: 'Принять заказ',
+                  icon: Icons.check_rounded,
+                  onTap: onAccept,
+                  height: 50,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _RouteLine extends StatelessWidget {
+  const _RouteLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: const BoxDecoration(
+                gradient: AppTheme.brandGradient,
+                shape: BoxShape.circle,
+              ),
+            ),
+            Container(width: 2, height: 24, color: AppTheme.divider),
+            Container(
+              width: 9,
+              height: 9,
+              decoration: const BoxDecoration(
+                color: AppTheme.ink,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 13.5,
+                  height: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
