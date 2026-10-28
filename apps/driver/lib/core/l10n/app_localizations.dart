@@ -44,6 +44,12 @@ class AppLocalizations {
   String get phonePlaceholder => '+996 700 000 000';
   String get getCode => locale.languageCode == 'ky' ? 'Код алуу' : 'Получить код';
   String get codeSendFailed => locale.languageCode == 'ky' ? 'Код жөнөтүү оңонушсуз болду' : 'Не удалось отправить код';
+  String otpRateLimited(int minutes) => locale.languageCode == 'ky'
+      ? 'Абдан көп аракет. $minutes мүнөттөн кийин кайталаңыз'
+      : 'Слишком много попыток. Попробуйте через $minutes мин';
+  String get networkError => locale.languageCode == 'ky'
+      ? 'Интернет байланышы жок. Туташууну текшериңиз'
+      : 'Нет соединения с интернетом. Проверьте связь';
   String get enterCode => locale.languageCode == 'ky' ? 'Кодду киргизиңиз' : 'Введите код';
   String get codeHint => locale.languageCode == 'ky' ? 'Алты цифрлуу код' : 'Шестизначный код';
   String get resendCode => locale.languageCode == 'ky' ? 'Кодду кайра жөнөтүү' : 'Отправить код повторно';

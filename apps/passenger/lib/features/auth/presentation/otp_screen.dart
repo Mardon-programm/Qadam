@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_error.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/storage/auth_storage.dart';
@@ -69,9 +70,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           .read(authNotifierProvider.notifier)
           .signIn(tokens.accessToken, tokens.refreshToken);
       if (mounted) context.go('/home');
-    } catch (_) {
+    } catch (e) {
       final l10n = AppLocalizations.of(context);
-      setState(() => _error = l10n.invalidCode);
+      final failure = ApiFailure.from(e);
+      final message = failure.isRateLimited
+          ? l10n.otpRateLimited(failure.retryInMinutes)
+          : l10n.invalidCode;
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -79,9 +84,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   Future<void> _resend() async {
     final api = ref.read(apiServiceProvider);
-    await api.requestOtp(widget.phone);
-    setState(() => _resendCountdown = 60);
-    _startCountdown();
+    try {
+      await api.requestOtp(widget.phone);
+      setState(() => _resendCountdown = 60);
+      _startCountdown();
+    } catch (e) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      final failure = ApiFailure.from(e);
+      final message = failure.isRateLimited
+          ? l10n.otpRateLimited(failure.retryInMinutes)
+          : l10n.codeSendFailed;
+      setState(() => _error = message);
+    }
   }
 
   @override

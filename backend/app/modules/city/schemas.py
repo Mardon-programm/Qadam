@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -42,6 +43,8 @@ class RideOut(BaseModel):
     eta_min: int | None
     driver_id: str | None
     currency: str
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class DriverLocationIn(BaseModel):

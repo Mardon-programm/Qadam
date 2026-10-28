@@ -163,9 +163,12 @@ async def create_booking(
 )
 async def my_bookings(db: DbSession, user: CurrentUser) -> list[BookingOut]:
     result = await db.execute(
-        select(Booking).where(Booking.passenger_id == user.id).order_by(Booking.created_at.desc())
+        select(Booking, IntercityTrip)
+        .outerjoin(IntercityTrip, IntercityTrip.id == Booking.trip_id)
+        .where(Booking.passenger_id == user.id)
+        .order_by(Booking.created_at.desc())
     )
-    return [_booking_out(b) for b in result.scalars().all()]
+    return [_booking_out(booking, trip=trip) for booking, trip in result.all()]
 
 
 @router.get(
@@ -240,7 +243,7 @@ def _trip_out(trip: IntercityTrip, available_seats: int) -> TripOut:
     )
 
 
-def _booking_out(booking: Booking) -> BookingOut:
+def _booking_out(booking: Booking, trip: IntercityTrip | None = None) -> BookingOut:
     seat_list = [s for s in booking.seat_codes.split(",") if s] if booking.seat_codes else []
     return BookingOut(
         id=booking.id,
@@ -254,4 +257,8 @@ def _booking_out(booking: Booking) -> BookingOut:
         currency=booking.currency,
         payment_id=booking.payment_id,
         held_until=booking.held_until,
+        created_at=booking.created_at,
+        origin_city=trip.origin_city if trip else None,
+        destination_city=trip.destination_city if trip else None,
+        depart_at=trip.depart_at if trip else None,
     )

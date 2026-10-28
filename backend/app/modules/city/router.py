@@ -35,6 +35,8 @@ def _ride_out(order: RideOrder) -> RideOut:
         eta_min=order.eta_min,
         driver_id=order.driver_id,
         currency=order.currency,
+        created_at=order.created_at,
+        completed_at=order.completed_at,
     )
 
 
@@ -74,6 +76,18 @@ async def create_ride(
     )
     await service.offer_to_drivers(db, order)
     return _ride_out(order)
+
+
+@router.get("/rides", response_model=list[RideOut])
+async def my_rides(db: DbSession, user: CurrentUser, limit: int = 50) -> list[RideOut]:
+    """Passenger ride history, newest first."""
+    result = await db.execute(
+        select(RideOrder)
+        .where(RideOrder.passenger_id == user.id)
+        .order_by(RideOrder.created_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    return [_ride_out(order) for order in result.scalars().all()]
 
 
 @router.get("/rides/{ride_id}", response_model=RideOut)

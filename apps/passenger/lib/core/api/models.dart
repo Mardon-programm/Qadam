@@ -65,6 +65,10 @@ class RideOrder {
   final String currency;
   final String? driverId;
   final int? etaMin;
+  final double? distanceKm;
+  final double? durationMin;
+  final DateTime? createdAt;
+  final DateTime? completedAt;
 
   const RideOrder({
     required this.id,
@@ -77,6 +81,10 @@ class RideOrder {
     required this.currency,
     this.driverId,
     this.etaMin,
+    this.distanceKm,
+    this.durationMin,
+    this.createdAt,
+    this.completedAt,
   });
 
   factory RideOrder.fromJson(Map<String, dynamic> j) => RideOrder(
@@ -90,6 +98,10 @@ class RideOrder {
         currency: j['currency'] as String? ?? 'KGS',
         driverId: j['driver_id'] as String?,
         etaMin: j['eta_min'] as int?,
+        distanceKm: j['distance_km'] != null ? _toDouble(j['distance_km']) : null,
+        durationMin: j['duration_min'] != null ? _toDouble(j['duration_min']) : null,
+        createdAt: _toDate(j['created_at']),
+        completedAt: _toDate(j['completed_at']),
       );
 
   bool get isActive => ![
@@ -150,6 +162,10 @@ class Booking {
   final double totalPrice;
   final String currency;
   final String? paymentId;
+  final DateTime? createdAt;
+  final String? originCity;
+  final String? destinationCity;
+  final DateTime? departAt;
 
   const Booking({
     required this.id,
@@ -160,6 +176,10 @@ class Booking {
     required this.totalPrice,
     required this.currency,
     this.paymentId,
+    this.createdAt,
+    this.originCity,
+    this.destinationCity,
+    this.departAt,
   });
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
@@ -171,6 +191,10 @@ class Booking {
         totalPrice: _toDouble(j['total_price']),
         currency: j['currency'] as String? ?? 'KGS',
         paymentId: j['payment_id'] as String?,
+        createdAt: _toDate(j['created_at']),
+        originCity: j['origin_city'] as String?,
+        destinationCity: j['destination_city'] as String?,
+        departAt: _toDate(j['depart_at']),
       );
 }
 
@@ -206,4 +230,9 @@ double _toDouble(dynamic v) {
   if (v is int) return v.toDouble();
   if (v is String) return double.parse(v);
   return 0.0;
+}
+
+DateTime? _toDate(dynamic v) {
+  if (v is String && v.isNotEmpty) return DateTime.tryParse(v);
+  return null;
 }

@@ -88,6 +88,13 @@ class ApiService {
     return RideOrder.fromJson(r.data as Map<String, dynamic>);
   }
 
+  Future<List<RideOrder>> getMyRides() async {
+    final r = await _dio.get('/city/rides');
+    return (r.data as List)
+        .map((e) => RideOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<RideOrder> cancelRide(String rideId, {String reason = 'user_cancelled'}) async {
     final r = await _dio.post('/city/rides/$rideId/cancel', data: {'reason': reason});
     return RideOrder.fromJson(r.data as Map<String, dynamic>);

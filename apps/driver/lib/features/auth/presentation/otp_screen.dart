@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_error.dart';
 import '../../../core/api/api_service.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 
@@ -67,8 +69,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         data['refresh_token'] as String,
       );
       if (mounted) context.go('/dashboard');
-    } catch (_) {
-      setState(() => _error = 'Неверный код');
+    } catch (e) {
+      final l10n = AppLocalizations.of(context);
+      final failure = ApiFailure.from(e);
+      final message = failure.isRateLimited
+          ? l10n.otpRateLimited(failure.retryInMinutes)
+          : l10n.invalidCode;
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

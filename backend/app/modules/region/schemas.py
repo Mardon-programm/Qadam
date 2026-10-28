@@ -63,6 +63,10 @@ class BookingOut(BaseModel):
     currency: str
     payment_id: str | None
     held_until: datetime | None
+    created_at: datetime | None = None
+    origin_city: str | None = None
+    destination_city: str | None = None
+    depart_at: datetime | None = None
 
 
 class BookingCancelIn(BaseModel):

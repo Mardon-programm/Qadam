@@ -25,7 +25,11 @@ async def request_otp(redis: Redis, phone: str) -> tuple[str, int]:
     if rate == 1:
         await redis.expire(_rate_key(phone), 3600)
     if rate > settings.otp_rate_limit_per_phone:
-        raise RateLimitError("OTP rate limit exceeded for this phone")
+        ttl = await redis.ttl(_rate_key(phone))
+        raise RateLimitError(
+            "Too many code requests for this phone number",
+            retry_after_seconds=ttl if ttl and ttl > 0 else 3600,
+        )
 
     code = generate_otp(settings.otp_length)
     await redis.setex(_otp_key(phone), settings.otp_ttl_seconds, code)
@@ -45,7 +49,10 @@ async def verify_otp(redis: Redis, phone: str, code: str) -> None:
         await redis.expire(attempts_key, settings.otp_ttl_seconds)
     if attempts > settings.otp_max_attempts:
         await redis.delete(_otp_key(phone))
-        raise RateLimitError("Too many OTP attempts")
+        raise RateLimitError(
+            "Too many code attempts",
+            retry_after_seconds=settings.otp_ttl_seconds,
+        )
 
     stored = await redis.get(_otp_key(phone))
     if not stored or stored != code:
