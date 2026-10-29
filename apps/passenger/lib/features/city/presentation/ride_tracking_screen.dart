@@ -11,6 +11,7 @@ import '../../../core/api/models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
+import 'cancel_reason_sheet.dart';
 
 const _bishkek = LatLng(42.8746, 74.5698);
 const _baseTiles =
@@ -55,11 +56,13 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
   }
 
   Future<void> _cancel() async {
+    final reason = await showCancelReasonSheet(context);
+    if (reason == null || !mounted) return;
     setState(() => _cancelling = true);
     try {
       await ref
           .read(cityRideNotifierProvider.notifier)
-          .cancelRide(widget.rideId);
+          .cancelRide(widget.rideId, reason: reason);
       if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) {
@@ -199,6 +202,21 @@ class _RideBodyState extends State<_RideBody> {
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.passenger',
               ),
+              if (_hasDriver && ride.driverLat != null && ride.driverLng != null)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [
+                        LatLng(ride.driverLat!, ride.driverLng!),
+                        _bishkek,
+                      ],
+                      color: AppTheme.warning,
+                      strokeWidth: 5,
+                      borderColor: Colors.white,
+                      borderStrokeWidth: 3,
+                    ),
+                  ],
+                ),
               if (_hasDriver && ride.driverLat != null && ride.driverLng != null)
                 MarkerLayer(
                   markers: [

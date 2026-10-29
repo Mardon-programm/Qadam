@@ -70,9 +70,9 @@ class CityRideNotifier extends AsyncNotifier<RideOrder?> {
     }
   }
 
-  Future<void> cancelRide(String rideId) async {
+  Future<void> cancelRide(String rideId, {String reason = 'user_cancelled'}) async {
     final api = ref.read(apiServiceProvider);
-    final updated = await api.cancelRide(rideId);
+    final updated = await api.cancelRide(rideId, reason: reason);
     state = AsyncValue.data(updated);
     ref.read(activeRideProvider.notifier).state = null;
   }
