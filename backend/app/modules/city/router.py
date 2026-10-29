@@ -245,11 +245,11 @@ async def cancel(
         db,
         order_id=ride_id,
         cancelled_by=user.role,
-        reason=body.reason,
+        reason=body.reason or "user_cancelled",
         passenger_id=passenger_id,
         driver_id=driver_id,
     )
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.get(
