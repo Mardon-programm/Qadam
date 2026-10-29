@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/models.dart';
 import '../../../core/theme/app_theme.dart';
@@ -29,6 +30,7 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
   Timer? _pollTimer;
   bool _cancelling = false;
   late AnimationController _pulseCtrl;
+  final _mapController = MapController();
 
   @override
   void initState() {
@@ -37,7 +39,7 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     )..repeat();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       ref.read(cityRideNotifierProvider.notifier).refreshRide(widget.rideId);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -73,6 +75,13 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
     }
   }
 
+  Future<void> _callDriver(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final rideAsync = ref.watch(cityRideNotifierProvider);
@@ -94,9 +103,11 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
           return _RideBody(
             ride: ride,
             pulseCtrl: _pulseCtrl,
+            mapController: _mapController,
             cancelling: _cancelling,
             onCancel: _cancel,
             onHome: () => context.go('/home'),
+            onCall: (p) => _callDriver(p),
           );
         },
       ),
@@ -104,39 +115,82 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
   }
 }
 
-class _RideBody extends StatelessWidget {
+class _RideBody extends StatefulWidget {
   const _RideBody({
     required this.ride,
     required this.pulseCtrl,
+    required this.mapController,
     required this.cancelling,
     required this.onCancel,
     required this.onHome,
+    required this.onCall,
   });
 
   final RideOrder ride;
   final AnimationController pulseCtrl;
+  final MapController mapController;
   final bool cancelling;
   final VoidCallback onCancel;
   final VoidCallback onHome;
+  final ValueChanged<String> onCall;
+
+  @override
+  State<_RideBody> createState() => _RideBodyState();
+}
+
+class _RideBodyState extends State<_RideBody> {
+  @override
+  void didUpdateWidget(covariant _RideBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ride.status != widget.ride.status ||
+        oldWidget.ride.driverLat != widget.ride.driverLat ||
+        oldWidget.ride.driverLng != widget.ride.driverLng) {
+      _focus();
+    }
+  }
+
+  void _focus() {
+    final points = <LatLng>[];
+    if (widget.ride.driverLat != null && widget.ride.driverLng != null) {
+      points.add(LatLng(widget.ride.driverLat!, widget.ride.driverLng!));
+    }
+    if (points.isEmpty) return;
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+      widget.mapController.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(90)),
+      );
+    } catch (_) {}
+  }
 
   bool get _isSearching =>
-      ride.status == 'created' ||
-      ride.status == 'searching' ||
-      ride.status == 'offered';
+      widget.ride.status == 'created' ||
+      widget.ride.status == 'searching' ||
+      widget.ride.status == 'offered';
 
-  bool get _isDone => ride.status == 'completed' || ride.status == 'cancelled';
+  bool get _hasDriver =>
+      widget.ride.driverId != null &&
+      (widget.ride.status == 'assigned' ||
+          widget.ride.status == 'driver_arriving' ||
+          widget.ride.status == 'driver_arrived' ||
+          widget.ride.status == 'in_progress');
+
+  bool get _isDone =>
+      widget.ride.status == 'completed' || widget.ride.status == 'cancelled';
 
   @override
   Widget build(BuildContext context) {
+    final ride = widget.ride;
     return Stack(
       children: [
         Positioned.fill(
           child: FlutterMap(
+            mapController: widget.mapController,
             options: MapOptions(
               initialCenter: _bishkek,
               initialZoom: 13,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.none,
+              interactionOptions: InteractionOptions(
+                flags: _isDone ? InteractiveFlag.all : InteractiveFlag.none,
               ),
             ),
             children: [
@@ -145,6 +199,26 @@ class _RideBody extends StatelessWidget {
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.passenger',
               ),
+              if (_hasDriver && ride.driverLat != null && ride.driverLng != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: LatLng(ride.driverLat!, ride.driverLng!),
+                      width: 64,
+                      height: 64,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.brandGradient,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                          boxShadow: AppTheme.floatShadow,
+                        ),
+                        child: const Icon(Icons.local_taxi_rounded,
+                            color: Colors.white, size: 28),
+                      ),
+                    ),
+                  ],
+                ),
               const RichAttributionWidget(
                 alignment: AttributionAlignment.bottomRight,
                 attributions: [
@@ -155,11 +229,18 @@ class _RideBody extends StatelessWidget {
             ],
           ),
         ),
-        if (!_isDone)
+        if (_isSearching)
           Positioned.fill(
             child: IgnorePointer(
-              child: _SearchingOverlay(pulseCtrl: pulseCtrl),
+              child: _SearchingOverlay(pulseCtrl: widget.pulseCtrl),
             ),
+          ),
+        if (ride.status == 'driver_arrived')
+          Positioned(
+            left: 16,
+            right: 16,
+            top: MediaQuery.of(context).padding.top + 96,
+            child: const _ArrivedBanner(),
           ),
         Column(
           children: [
@@ -176,7 +257,7 @@ class _RideBody extends StatelessWidget {
                 child: _DoneCard(
                   completed: ride.status == 'completed',
                   price: ride.quotedPrice,
-                  onHome: onHome,
+                  onHome: widget.onHome,
                 ),
               )
             else
@@ -190,14 +271,18 @@ class _RideBody extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (_hasDriver && ride.driver != null)
+                      _DriverCard(driver: ride.driver!, onCall: widget.onCall),
+                    if (_hasDriver && ride.driver != null)
+                      const SizedBox(height: 10),
                     if (_isSearching) const _SearchingTips(),
-                    const SizedBox(height: 10),
+                    if (_isSearching) const SizedBox(height: 10),
                     _DriverRouteCard(ride: ride),
                     const SizedBox(height: 10),
                     QadamActionButton(
                       label: 'Отменить поиск',
-                      onTap: onCancel,
-                      loading: cancelling,
+                      onTap: widget.onCancel,
+                      loading: widget.cancelling,
                       style: QadamButtonStyle.ghost,
                       icon: Icons.close_rounded,
                     ),
@@ -207,6 +292,147 @@ class _RideBody extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ArrivedBanner extends StatelessWidget {
+  const _ArrivedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return QadamGradientCard(
+      gradient: AppTheme.brandGradient,
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.pin_drop_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Водитель прибыл',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  'Найдите автомобиль у точки посадки',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverCard extends StatelessWidget {
+  const _DriverCard({required this.driver, required this.onCall});
+  final DriverInfo driver;
+  final ValueChanged<String> onCall;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = driver.fullName?.trim().isNotEmpty == true
+        ? driver.fullName!.trim()
+        : 'Водитель Qadam';
+    final hasPhone = driver.phone?.trim().isNotEmpty == true;
+
+    return QadamCard(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: AppTheme.brandGradient,
+              shape: BoxShape.circle,
+              boxShadow: AppTheme.floatShadow,
+            ),
+            child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  driver.vehicleTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                if (driver.plate.isNotEmpty)
+                  Text(
+                    driver.plate,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (hasPhone)
+            Material(
+              color: AppTheme.mint,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => onCall(driver.phone!),
+                child: const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(Icons.call_rounded, color: AppTheme.earningsGreen),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -321,8 +547,8 @@ class _StatusHeader extends StatelessWidget {
     'offered': 'Один из водителей рассматривает ваш заказ',
     'assigned': 'Водитель принял заказ и выезжает',
     'driver_arriving': 'Будьте готовы у указанной точки посадки',
-    'driver_arrived': 'Найдите водителя у точки подачи',
-    'in_progress': 'Следите за маршрутом и приятной поездки',
+    'driver_arrived': 'Водитель уже у точки подачи',
+    'in_progress': 'Приятной поездки',
     'completed': 'Спасибо, что выбрали Qadam',
     'cancelled': 'Вы всегда можете заказать такси повторно',
   };
@@ -374,14 +600,16 @@ class _StatusHeader extends StatelessWidget {
                               ? (status == 'completed'
                                   ? 'Завершено'
                                   : 'Отменено')
-                              : 'В поиске',
+                              : (status == 'driver_arrived'
+                                  ? 'Прибыл'
+                                  : 'В поиске'),
                           color: Colors.white,
                           background: const Color(0x33FFFFFF),
                           icon: done
                               ? (status == 'completed'
                                   ? Icons.check_rounded
                                   : Icons.close_rounded)
-                              : Icons.radar_rounded,
+                              : Icons.navigation_rounded,
                         ),
                       ],
                     ),
@@ -521,7 +749,7 @@ class _DriverRouteCard extends StatelessWidget {
                       ),
                     ),
                     const Text(
-                      'Ориентир',
+                      'Наличные',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 11,

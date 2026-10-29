@@ -73,6 +73,49 @@ class RideQuote {
       );
 }
 
+class DriverInfo {
+  final String? fullName;
+  final String? phone;
+  final String? avatarUrl;
+  final String? rating;
+  final String? vehicleMake;
+  final String? vehicleModel;
+  final String? vehicleColor;
+  final String? vehiclePlate;
+
+  const DriverInfo({
+    this.fullName,
+    this.phone,
+    this.avatarUrl,
+    this.rating,
+    this.vehicleMake,
+    this.vehicleModel,
+    this.vehicleColor,
+    this.vehiclePlate,
+  });
+
+  String get vehicleTitle {
+    final parts = [vehicleMake, vehicleModel, vehicleColor]
+        .where((e) => e != null && e!.isNotEmpty)
+        .map((e) => e!)
+        .toList();
+    return parts.isEmpty ? 'Автомобиль' : parts.join(' · ');
+  }
+
+  String get plate => vehiclePlate ?? '';
+
+  factory DriverInfo.fromJson(Map<String, dynamic> j) => DriverInfo(
+        fullName: j['full_name'] as String?,
+        phone: j['phone'] as String?,
+        avatarUrl: j['avatar_url'] as String?,
+        rating: j['rating'] as String?,
+        vehicleMake: j['vehicle_make'] as String?,
+        vehicleModel: j['vehicle_model'] as String?,
+        vehicleColor: j['vehicle_color'] as String?,
+        vehiclePlate: j['vehicle_plate'] as String?,
+      );
+}
+
 class RideOrder {
   final String id;
   final String status;
@@ -88,6 +131,9 @@ class RideOrder {
   final double? durationMin;
   final DateTime? createdAt;
   final DateTime? completedAt;
+  final DriverInfo? driver;
+  final double? driverLat;
+  final double? driverLng;
 
   const RideOrder({
     required this.id,
@@ -104,6 +150,9 @@ class RideOrder {
     this.durationMin,
     this.createdAt,
     this.completedAt,
+    this.driver,
+    this.driverLat,
+    this.driverLng,
   });
 
   factory RideOrder.fromJson(Map<String, dynamic> j) => RideOrder(
@@ -111,16 +160,25 @@ class RideOrder {
         status: j['status'] as String,
         pickupAddress: j['pickup_address'] as String,
         dropoffAddress: j['dropoff_address'] as String,
-        quotedPrice: j['quoted_price'] != null ? _toDouble(j['quoted_price']) : null,
-        finalPrice: j['final_price'] != null ? _toDouble(j['final_price']) : null,
+        quotedPrice:
+            j['quoted_price'] != null ? _toDouble(j['quoted_price']) : null,
+        finalPrice:
+            j['final_price'] != null ? _toDouble(j['final_price']) : null,
         surgeMultiplier: _toDouble(j['surge_multiplier']),
         currency: j['currency'] as String? ?? 'KGS',
         driverId: j['driver_id'] as String?,
         etaMin: j['eta_min'] as int?,
-        distanceKm: j['distance_km'] != null ? _toDouble(j['distance_km']) : null,
-        durationMin: j['duration_min'] != null ? _toDouble(j['duration_min']) : null,
+        distanceKm:
+            j['distance_km'] != null ? _toDouble(j['distance_km']) : null,
+        durationMin:
+            j['duration_min'] != null ? _toDouble(j['duration_min']) : null,
         createdAt: _toDate(j['created_at']),
         completedAt: _toDate(j['completed_at']),
+        driver: j['driver'] is Map
+            ? DriverInfo.fromJson((j['driver'] as Map).cast<String, dynamic>())
+            : null,
+        driverLat: j['driver_lat'] != null ? _toDouble(j['driver_lat']) : null,
+        driverLng: j['driver_lng'] != null ? _toDouble(j['driver_lng']) : null,
       );
 
   bool get isActive => ![
