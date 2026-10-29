@@ -78,6 +78,8 @@ async def add_vehicle(
     existing = await db.execute(select(Vehicle).where(Vehicle.plate_number == plate_number))
     if existing.scalar_one_or_none():
         raise ConflictError("Vehicle with this plate number is already registered")
+    from app.core.config import get_settings
+
     vehicle = Vehicle(
         driver_id=profile.id,
         make=body.make,
@@ -87,7 +89,7 @@ async def add_vehicle(
         year=body.year,
         seats=body.seats,
         vehicle_class=body.vehicle_class,
-        status=VerificationStatus.PENDING,
+        status=VerificationStatus.APPROVED if get_settings().auto_approve_drivers else VerificationStatus.PENDING,
     )
     db.add(vehicle)
     try:
@@ -115,7 +117,7 @@ async def activate_vehicle(
     vehicle = await db.get(Vehicle, vehicle_id)
     if not vehicle or vehicle.driver_id != profile.id:
         raise NotFoundError("Vehicle not found")
-    if vehicle.status != VerificationStatus.APPROVED:
+    if not get_settings().auto_approve_drivers and vehicle.status != VerificationStatus.APPROVED:
         raise ForbiddenError("Vehicle must be approved before activation")
     if profile.online_status == DriverOnlineStatus.BUSY:
         raise ConflictError("Cannot change vehicle during active ride")

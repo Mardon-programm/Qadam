@@ -19,10 +19,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def request_otp(body: OTPRequestIn, redis: RedisDep) -> OTPRequestOut:
     code, ttl = await otp.request_otp(redis, body.phone)  # type: ignore[arg-type]
     settings = get_settings()
+    # In console mode (no real SMS) return the code so the app can auto-fill it.
+    # This keeps registration working without an SMS provider; switch to a real
+    # provider (sms_provider=http/twilio) for production-grade verification.
+    expose = settings.is_dev or settings.sms_provider == "console"
     return OTPRequestOut(
         sent=True,
         expires_in_seconds=ttl,
-        debug_code=code if settings.is_dev else None,
+        debug_code=code if expose else None,
     )
 
 

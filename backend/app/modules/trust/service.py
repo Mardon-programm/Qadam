@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.enums import DriverOnlineStatus, VerificationStatus
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.modules.trust.models import DriverDocument, DriverProfile, Vehicle
@@ -18,14 +19,21 @@ async def get_or_create_driver_profile(db: AsyncSession, user_id: str) -> Driver
     result = await db.execute(select(DriverProfile).where(DriverProfile.user_id == user_id))
     profile = result.scalar_one_or_none()
     if profile:
+        if get_settings().auto_approve_drivers and profile.verification_status != VerificationStatus.APPROVED:
+            profile.verification_status = VerificationStatus.APPROVED
+            await db.flush()
         return profile
     profile = DriverProfile(user_id=user_id)
+    if get_settings().auto_approve_drivers:
+        profile.verification_status = VerificationStatus.APPROVED
     db.add(profile)
     await db.flush()
     return profile
 
 
 async def documents_allow_online(db: AsyncSession, driver: DriverProfile) -> bool:
+    if get_settings().auto_approve_drivers:
+        return True
     if driver.verification_status != VerificationStatus.APPROVED:
         return False
     if not driver.active_vehicle_id:

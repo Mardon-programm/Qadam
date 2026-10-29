@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     sms_provider: str = "console"
+    # Generic HTTP SMS gateway (any provider). Body template supports {phone}/{code}.
+    sms_http_url: str = ""
+    sms_http_method: str = "POST"
+    sms_http_headers: str = ""
+    sms_http_body: str = '{"phone":"{phone}","message":"Qadam code: {code}"}'
+    # Twilio
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
     otp_ttl_seconds: int = 300
     otp_length: int = 6
     otp_max_attempts: int = 5
@@ -41,6 +50,8 @@ class Settings(BaseSettings):
 
     ops_bootstrap_phone: str = "+996700000001"
     ops_bootstrap_name: str = "Qadam Ops"
+    # Set to true for a quick launch without manual document review (NOT for prod scale).
+    auto_approve_drivers: bool = False
 
     # City pricing defaults (KGS) — tunable via ops later
     city_base_fare: float = 50.0

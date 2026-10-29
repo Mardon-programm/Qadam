@@ -1,6 +1,9 @@
+import json
 import random
 import string
+from urllib.parse import urlencode
 
+import httpx
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
@@ -34,11 +37,64 @@ async def request_otp(redis: Redis, phone: str) -> tuple[str, int]:
     code = generate_otp(settings.otp_length)
     await redis.setex(_otp_key(phone), settings.otp_ttl_seconds, code)
 
-    # Console SMS provider — production swaps to real SMS gateway
-    if settings.sms_provider == "console":
+    settings = get_settings()
+    provider = (settings.sms_provider or "console").lower()
+
+    if provider == "console":
         print(f"[QADAM SMS] OTP for {phone}: {code}")
+    elif provider == "http":
+        await _send_sms_http(phone, code, settings)
+    elif provider == "twilio":
+        await _send_sms_twilio(phone, code, settings)
+    else:
+        print(f"[QADAM SMS] unknown provider {provider}; OTP for {phone}: {code}")
 
     return code, settings.otp_ttl_seconds
+
+
+async def _send_sms_http(phone: str, code: str, settings) -> None:
+    url = settings.sms_http_url
+    if not url:
+        print(f"[QADAM SMS] sms_http_url not set; OTP for {phone}: {code}")
+        return
+    method = (settings.sms_http_method or "POST").upper()
+    headers = {}
+    if settings.sms_http_headers:
+        try:
+            headers = json.loads(settings.sms_http_headers)
+        except Exception:
+            headers = {}
+    body_template = settings.sms_http_body or ""
+    body_str = body_template.replace("{phone}", phone).replace("{code}", code)
+    # Try JSON first
+    try:
+        payload = json.loads(body_str)
+        async with httpx.AsyncClient(timeout=10) as client:
+            if method == "GET":
+                await client.get(url, params=payload, headers=headers)
+            else:
+                await client.request(method, url, json=payload, headers=headers)
+        return
+    except (json.JSONDecodeError, ValueError):
+        pass
+    async with httpx.AsyncClient(timeout=10) as client:
+        if method == "GET":
+            await client.get(url, params={"phone": phone, "code": code}, headers=headers)
+        else:
+            await client.request(method, url, content=body_str, headers=headers)
+
+
+async def _send_sms_twilio(phone: str, code: str, settings) -> None:
+    sid = settings.twilio_account_sid
+    token = settings.twilio_auth_token
+    frm = settings.twilio_from
+    if not (sid and token and frm):
+        print(f"[QADAM SMS] Twilio not configured; OTP for {phone}: {code}")
+        return
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+    data = {"To": phone, "From": frm, "Body": f"Qadam код: {code}"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        await client.post(url, data=data, auth=(sid, token))
 
 
 async def verify_otp(redis: Redis, phone: str, code: str) -> None:
