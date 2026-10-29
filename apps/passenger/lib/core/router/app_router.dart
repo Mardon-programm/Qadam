@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/phone_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
-import '../../features/city/presentation/city_map_screen.dart';
+import '../../features/city/presentation/city_home_yandex.dart';
 import '../../features/city/presentation/ride_tracking_screen.dart';
 import '../../features/region/presentation/region_search_screen.dart';
 import '../../features/region/presentation/trip_list_screen.dart';
@@ -65,7 +65,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (_, __) => const CityMapScreen(),
+            builder: (_, __) => const CityHomeScreen(),
           ),
           GoRoute(
             path: '/region',
