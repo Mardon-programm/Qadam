@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.config import get_settings
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.core.enums import DriverOnlineStatus, UserRole, VerificationStatus
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
