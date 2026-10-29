@@ -15,6 +15,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
 import 'place_search_sheet.dart';
+import 'tariff_selector.dart';
+import 'sos_sheet.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
@@ -45,6 +47,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   MapConfig? _mapConfig;
   bool _trafficOn = false;
   bool _followUser = true;
+  String _tariff = 'economy';
 
   StreamSubscription<Position>? _positionStream;
   DateTime _lastQuoteAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -485,6 +488,11 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                           const SizedBox(width: 10),
                         ],
                         _RoundMapButton(
+                          icon: Icons.emergency_rounded,
+                          onTap: () => showSosSheet(context),
+                        ),
+                        const SizedBox(width: 10),
+                        _RoundMapButton(
                           icon: Icons.my_location_rounded,
                           onTap: () {
                             if (_pickup != null) {
@@ -496,13 +504,22 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (_showQuote && _pickup != null && _dropoff != null)
+                  if (_showQuote && _pickup != null && _dropoff != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TariffSelector(
+                        selectedId: _tariff,
+                        onChanged: (v) => setState(() => _tariff = v),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     _RouteBottomSheet(
                       pickupAddress: _pickupAddress,
                       dropoffAddress: _dropoffAddress,
                       onOrder: _orderRide,
                       onChangePoints: _resetRoute,
                     ),
+                  ],
                   const SizedBox(height: 10),
                 ],
               ),

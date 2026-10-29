@@ -9,6 +9,7 @@ import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
+import 'shift_card.dart';
 
 final _profileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(driverApiProvider).getProfile();
