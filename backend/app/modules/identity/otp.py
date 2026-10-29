@@ -1,13 +1,53 @@
 import json
 import random
 import string
-from urllib.parse import urlencode
+import time
+from typing import Any
 
 import httpx
-from redis.asyncio import Redis
 
 from app.core.config import get_settings
 from app.core.exceptions import RateLimitError, UnauthorizedError
+
+# In-memory fallback when Redis is unavailable (single-instance only).
+_MEM: dict[str, tuple[str, float]] = {}
+_MEM_COUNTERS: dict[str, tuple[int, float]] = {}
+
+
+def _mem_get(key: str) -> str | None:
+    v = _MEM.get(key)
+    if not v:
+        return None
+    if v[1] < time.time():
+        del _MEM[key]
+        return None
+    return v[0]
+
+
+def _mem_setex(key: str, ttl: int, value: str) -> None:
+    _MEM[key] = (value, time.time() + ttl)
+
+
+def _mem_incr(key: str, ttl: int) -> int:
+    c = _MEM_COUNTERS.get(key)
+    if c is None or c[1] < time.time():
+        _MEM_COUNTERS[key] = (1, time.time() + ttl)
+        return 1
+    _MEM_COUNTERS[key] = (c[0] + 1, c[1])
+    return c[0] + 1
+
+
+def _mem_ttl(key: str) -> int:
+    c = _MEM_COUNTERS.get(key)
+    if not c:
+        return 0
+    rem = int(c[1] - time.time())
+    return rem if rem > 0 else 0
+
+
+def _mem_delete(key: str) -> None:
+    _MEM.pop(key, None)
+    _MEM_COUNTERS.pop(key, None)
 
 
 def _otp_key(phone: str) -> str:
@@ -22,22 +62,40 @@ def generate_otp(length: int) -> str:
     return "".join(random.choices(string.digits, k=length))
 
 
-async def request_otp(redis: Redis, phone: str) -> tuple[str, int]:
+async def request_otp(redis, phone: str) -> tuple[str, int]:
     settings = get_settings()
-    rate = await redis.incr(_rate_key(phone))
-    if rate == 1:
-        await redis.expire(_rate_key(phone), 3600)
-    if rate > settings.otp_rate_limit_per_phone:
-        ttl = await redis.ttl(_rate_key(phone))
-        raise RateLimitError(
-            "Too many code requests for this phone number",
-            retry_after_seconds=ttl if ttl and ttl > 0 else 3600,
-        )
+    # rate limit
+    if redis is not None:
+        try:
+            rate = await redis.incr(_rate_key(phone))
+            if rate == 1:
+                await redis.expire(_rate_key(phone), 3600)
+            if rate > settings.otp_rate_limit_per_phone:
+                ttl = await redis.ttl(_rate_key(phone))
+                raise RateLimitError(
+                    "Too many code requests for this phone number",
+                    retry_after_seconds=ttl if ttl and ttl > 0 else 3600,
+                )
+        except Exception:
+            redis = None
+    if redis is None:
+        rate = _mem_incr(_rate_key(phone), 3600)
+        if rate > settings.otp_rate_limit_per_phone:
+            raise RateLimitError(
+                "Too many code requests for this phone number",
+                retry_after_seconds=_mem_ttl(_rate_key(phone)) or 3600,
+            )
 
     code = generate_otp(settings.otp_length)
-    await redis.setex(_otp_key(phone), settings.otp_ttl_seconds, code)
+    if redis is not None:
+        try:
+            await redis.setex(_otp_key(phone), settings.otp_ttl_seconds, code)
+        except Exception:
+            redis = None
+            _mem_setex(_otp_key(phone), settings.otp_ttl_seconds, code)
+    else:
+        _mem_setex(_otp_key(phone), settings.otp_ttl_seconds, code)
 
-    settings = get_settings()
     provider = (settings.sms_provider or "console").lower()
 
     if provider == "console":
@@ -97,22 +155,42 @@ async def _send_sms_twilio(phone: str, code: str, settings) -> None:
         await client.post(url, data=data, auth=(sid, token))
 
 
-async def verify_otp(redis: Redis, phone: str, code: str) -> None:
+async def verify_otp(redis, phone: str, code: str) -> None:
     settings = get_settings()
     attempts_key = f"otp:attempts:{phone}"
-    attempts = await redis.incr(attempts_key)
-    if attempts == 1:
-        await redis.expire(attempts_key, settings.otp_ttl_seconds)
-    if attempts > settings.otp_max_attempts:
-        await redis.delete(_otp_key(phone))
-        raise RateLimitError(
-            "Too many code attempts",
-            retry_after_seconds=settings.otp_ttl_seconds,
-        )
+    if redis is not None:
+        try:
+            attempts = await redis.incr(attempts_key)
+            if attempts == 1:
+                await redis.expire(attempts_key, settings.otp_ttl_seconds)
+            if attempts > settings.otp_max_attempts:
+                await redis.delete(_otp_key(phone))
+                raise RateLimitError(
+                    "Too many code attempts",
+                    retry_after_seconds=settings.otp_ttl_seconds,
+                )
+            stored = await redis.get(_otp_key(phone))
+        except Exception:
+            redis = None
+            stored = None
+    if redis is None:
+        attempts = _mem_incr(attempts_key, settings.otp_ttl_seconds)
+        if attempts > settings.otp_max_attempts:
+            _mem_delete(_otp_key(phone))
+            raise RateLimitError(
+                "Too many code attempts",
+                retry_after_seconds=settings.otp_ttl_seconds,
+            )
+        stored = _mem_get(_otp_key(phone))
 
-    stored = await redis.get(_otp_key(phone))
     if not stored or stored != code:
         raise UnauthorizedError("Invalid or expired OTP")
 
-    await redis.delete(_otp_key(phone))
-    await redis.delete(attempts_key)
+    if redis is not None:
+        try:
+            await redis.delete(_otp_key(phone))
+            await redis.delete(attempts_key)
+        except Exception:
+            pass
+    _mem_delete(_otp_key(phone))
+    _MEM_COUNTERS.pop(attempts_key, None)
