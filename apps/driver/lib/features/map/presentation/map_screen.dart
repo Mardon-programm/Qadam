@@ -36,6 +36,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   String? _error;
   StreamSubscription<Position>? _positionStream;
   LatLng? _driverPosition;
+  DateTime _lastLocationSent = DateTime.fromMillisecondsSinceEpoch(0);
 
   String? _selectedOfferId;
   List<LatLng> _approachRoute = const [];
@@ -90,6 +91,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         );
         _mapController.move(_driverPosition!, 15);
       }
+      ref.read(driverApiProvider).updateLocation(position.latitude, position.longitude).catchError((_) {});
 
       _positionStream = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
@@ -100,6 +102,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         if (!mounted) return;
         setState(() => _driverPosition = LatLng(p.latitude, p.longitude));
         if (_selectedOfferId != null) _fitToRoute();
+        final now = DateTime.now();
+        if (now.difference(_lastLocationSent).inSeconds >= 12) {
+          _lastLocationSent = now;
+          ref.read(driverApiProvider).updateLocation(p.latitude, p.longitude).catchError((_) {});
+        }
       });
     } catch (e) {
       if (mounted) setState(() => _driverPosition = _bishkek);
@@ -638,12 +645,18 @@ class _OfferPreviewCard extends StatelessWidget {
 
   String _addr(dynamic v) => (v as String? ?? '').trim().isEmpty ? '—' : v as String;
 
+  String _money(dynamic v) {
+    if (v == null) return '—';
+    return '${v} сом';
+  }
+
   @override
   Widget build(BuildContext context) {
     final net = offer['net_estimate'];
     final eta = offer['eta_min'];
     final price = offer['quoted_price'];
     final dist = offer['distance_km'];
+    final toPickup = offer['distance_to_pickup_km'];
 
     return QadamSheet(
       padding: const EdgeInsets.fromLTRB(22, 10, 22, 12),
@@ -654,21 +667,60 @@ class _OfferPreviewCard extends StatelessWidget {
           Row(
             children: [
               const QadamIconBadge(
-                icon: Icons.route_rounded,
-                color: AppTheme.warning,
-                size: 44,
+                icon: Icons.local_taxi_rounded,
+                color: AppTheme.primary,
+                size: 48,
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Новый заказ · Маршрут к пассажиру',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      price != null ? _money(price) : 'Новый заказ',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      net != null ? 'К выдаче ${_money(net)} • 0% комиссия' : '0% комиссия',
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'До подачи ~${eta ?? 0} мин',
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    toPickup != null
+                        ? '${toPickup.toStringAsFixed(1)} км до вас'
+                        : (dist != null ? '${dist} км по маршруту' : '—'),
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 onPressed: onClose,
@@ -679,25 +731,9 @@ class _OfferPreviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _RouteLine(label: 'Откуда', value: _addr(offer['pickup_address'])),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Divider(height: 1, color: AppTheme.divider),
-          ),
-          _RouteLine(label: 'Куда', value: _addr(offer['dropoff_address'])),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              if (net != null)
-                QadamTag(label: '$net сом · Ваш заработок', color: AppTheme.earningsGreen, background: AppTheme.mint),
-              if (price != null)
-                QadamTag(label: 'Заказ $price сом', color: AppTheme.primary, background: AppTheme.lavender),
-              if (eta != null) QadamTag(label: 'К пассажиру ~$eta мин', color: AppTheme.warning),
-              if (dist != null) QadamTag(label: 'Поездка ${dist} км', color: AppTheme.textSecondary),
-            ],
-          ),
+          _RouteLine(label: 'ОТКУДА', value: _addr(offer['pickup_address'])),
+          const SizedBox(height: 10),
+          _RouteLine(label: 'КУДА', value: _addr(offer['dropoff_address'])),
           if (loadingRoute)
             const Padding(
               padding: EdgeInsets.only(top: 10),
@@ -732,10 +768,10 @@ class _OfferPreviewCard extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: QadamActionButton(
-                  label: 'Принять заказ',
+                  label: 'ПРИНЯТЬ ЗАКАЗ',
                   icon: Icons.check_rounded,
                   onTap: onAccept,
-                  height: 50,
+                  height: 54,
                 ),
               ),
             ],

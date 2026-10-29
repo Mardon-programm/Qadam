@@ -163,8 +163,25 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
     }
   }
 
+  bool _ordering = false;
+
   Future<void> _order() async {
-    if (_pickup == null || _dropoff == null) return;
+    if (_ordering) return;
+    if (_pickup == null || _dropoff == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Укажите адрес назначения'),
+          backgroundColor: AppTheme.warning,
+        ),
+      );
+      return;
+    }
+    final quote = ref.read(quoteProvider);
+    if (quote == null) {
+      _goQuote();
+      return;
+    }
+    setState(() => _ordering = true);
     try {
       final ride = await ref.read(cityRideNotifierProvider.notifier).createRide(
             pickupAddress: _pickupAddress,
@@ -181,6 +198,8 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
           SnackBar(content: Text('$e'), backgroundColor: AppTheme.error),
         );
       }
+    } finally {
+      if (mounted) setState(() => _ordering = false);
     }
   }
 
@@ -401,7 +420,11 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
                           ],
                         ),
                         const SizedBox(height: 14),
-                        QadamActionButton(label: l10n.orderRide, onTap: _order, icon: Icons.arrow_forward_rounded),
+                        QadamActionButton(
+                          label: _ordering ? 'Заказываем...' : l10n.orderRide,
+                          onTap: _ordering ? null : _order,
+                          icon: _ordering ? Icons.hourglass_top_rounded : Icons.arrow_forward_rounded,
+                        ),
                       ],
                     ),
                   ),

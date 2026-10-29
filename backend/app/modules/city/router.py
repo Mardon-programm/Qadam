@@ -128,7 +128,7 @@ async def create_ride(
         idempotency_key=body.idempotency_key,
     )
     await service.offer_to_drivers(db, order)
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.get("/rides", response_model=list[RideOut])
@@ -165,7 +165,7 @@ async def get_ride(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
 async def accept_ride(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
     driver = await get_or_create_driver_profile(db, user.id)
     order = await service.accept_ride(db, order_id=ride_id, driver=driver)
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.post(
@@ -195,7 +195,7 @@ async def start(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
         actor_driver_id=driver.id,
         new_status=RideOrderStatus.IN_PROGRESS,
     )
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.post(
@@ -224,7 +224,7 @@ async def complete(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
         order.ledger_posted = True
         driver.online_status = DriverOnlineStatus.ONLINE
         await db.flush()
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.post("/rides/{ride_id}/cancel", response_model=RideOut)
