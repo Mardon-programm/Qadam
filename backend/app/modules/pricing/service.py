@@ -44,6 +44,9 @@ class RouteEstimate:
         return "heavy"
 
 
+import math
+
+
 def quote_city_fare(
     *,
     distance_km: float,
@@ -58,6 +61,7 @@ def quote_city_fare(
     ``surge`` is the final multiplier (traffic and demand already folded in);
     the separate factors are returned for the price breakdown in the app.
     Drivers keep the full fare (0% commission).
+    Prices are rounded to nice integers (like Yandex) for cleaner UX.
     """
     settings = get_settings()
     surge_c = min(max(surge, 1.0), settings.city_surge_cap)
@@ -66,7 +70,14 @@ def quote_city_fare(
     time_part = Decimal(str(duration_min)) * Decimal(str(settings.city_per_minute))
     raw = (base + distance + time_part) * Decimal(str(surge_c))
     price = max(raw, Decimal(str(settings.city_min_fare)))
-    price = _money(price)
+
+    # Round to nearest 5 for cleaner prices (e.g. 134 -> 135, 136 -> 140)
+    price_float = float(price)
+    if price_float > 0:
+        rounded = math.ceil(price_float / 5.0) * 5.0
+        if rounded < float(settings.city_min_fare):
+            rounded = float(settings.city_min_fare)
+        price = Decimal(str(int(rounded)))
 
     commission = _money(price * Decimal(str(settings.flex_commission_rate)))
     driver_net = _money(price - commission)
