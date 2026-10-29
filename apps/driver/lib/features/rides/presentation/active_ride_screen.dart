@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_service.dart';
@@ -23,18 +24,32 @@ class _ActiveRideScreenState extends ConsumerState<ActiveRideScreen> {
   bool _loading = true;
   bool _busy = false;
   Timer? _poll;
+  Timer? _locTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
     _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+    _locTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendLocation());
+    _sendLocation();
   }
 
   @override
   void dispose() {
     _poll?.cancel();
+    _locTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _sendLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+      await ref.read(driverApiProvider).updateLocation(pos.latitude, pos.longitude);
+    } catch (_) {}
   }
 
   Future<void> _load() async {

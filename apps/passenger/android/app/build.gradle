@@ -30,11 +30,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            def ksPath = System.getenv("QADAM_KEYSTORE") ?: "/home/mroot/qadam-release.jks"
+            def ksFile = file(ksPath)
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword System.getenv("QADAM_STOREPASS") ?: "Qadam2026!Secure"
+                keyAlias "qadam"
+                keyPassword System.getenv("QADAM_KEYPASS") ?: "Qadam2026!Secure"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

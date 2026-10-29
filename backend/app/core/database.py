@@ -77,7 +77,8 @@ async def ensure_database() -> str:
 
     try:
         async with asyncio.timeout(settings.database_connect_timeout_seconds):
-            async with engine.connect() as connection:
+            async with engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
                 await connection.execute(text("SELECT 1"))
         database_mode = "primary"
         return database_mode
