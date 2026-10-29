@@ -9,14 +9,66 @@ from app.modules.city.models import RideOffer, RideOrder
 from app.modules.city.schemas import (
     CancelRideIn,
     CreateRideIn,
+    DriverInfoOut,
     QuoteIn,
     QuoteOut,
     RideOut,
 )
+from app.modules.identity.models import User
 from app.modules.ledger.service import post_ride_completion
+from app.modules.trust.models import DriverProfile, Vehicle
 from app.modules.trust.service import get_or_create_driver_profile
 
 router = APIRouter(prefix="/city", tags=["city"])
+
+
+async def _ride_out_full(db: DbSession, order: RideOrder) -> RideOut:
+    driver_info = None
+    driver_lat = None
+    driver_lng = None
+    if order.driver_id:
+        driver = await db.get(DriverProfile, order.driver_id)
+        if driver:
+            if driver.last_lat is not None:
+                driver_lat = float(driver.last_lat)
+            if driver.last_lng is not None:
+                driver_lng = float(driver.last_lng)
+            user = await db.get(User, driver.user_id)
+            vehicle = None
+            if driver.active_vehicle_id:
+                vehicle = await db.get(Vehicle, driver.active_vehicle_id)
+            elif order.vehicle_id:
+                vehicle = await db.get(Vehicle, order.vehicle_id)
+            driver_info = DriverInfoOut(
+                full_name=user.full_name if user else None,
+                phone=user.phone if user else None,
+                rating=str(driver.rating) if driver.rating is not None else None,
+                vehicle_make=vehicle.make if vehicle else None,
+                vehicle_model=vehicle.model if vehicle else None,
+                vehicle_color=vehicle.color if vehicle else None,
+                vehicle_plate=vehicle.plate_number if vehicle else None,
+            )
+    return RideOut(
+        id=order.id,
+        status=order.status,
+        pickup_address=order.pickup_address,
+        dropoff_address=order.dropoff_address,
+        quoted_price=order.quoted_price,
+        final_price=order.final_price,
+        surge_multiplier=order.surge_multiplier,
+        driver_net_estimate=order.driver_net_estimate,
+        platform_fee_estimate=order.platform_fee_estimate,
+        distance_km=order.distance_km,
+        duration_min=order.duration_min,
+        eta_min=order.eta_min,
+        driver_id=order.driver_id,
+        currency=order.currency,
+        created_at=order.created_at,
+        completed_at=order.completed_at,
+        driver=driver_info,
+        driver_lat=driver_lat,
+        driver_lng=driver_lng,
+    )
 
 
 def _ride_out(order: RideOrder) -> RideOut:
@@ -88,7 +140,11 @@ async def my_rides(db: DbSession, user: CurrentUser, limit: int = 50) -> list[Ri
         .order_by(RideOrder.created_at.desc())
         .limit(max(1, min(limit, 100)))
     )
-    return [_ride_out(order) for order in result.scalars().all()]
+    orders = result.scalars().all()
+    out = []
+    for order in orders:
+        out.append(await _ride_out_full(db, order))
+    return out
 
 
 @router.get("/rides/{ride_id}", response_model=RideOut)
@@ -98,7 +154,7 @@ async def get_ride(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
         raise NotFoundError("Ride not found")
     if user.role == UserRole.PASSENGER and order.passenger_id != user.id:
         raise NotFoundError("Ride not found")
-    return _ride_out(order)
+    return await _ride_out_full(db, order)
 
 
 @router.post(

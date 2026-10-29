@@ -33,6 +33,17 @@ class CreateRideIn(QuoteIn):
     idempotency_key: str | None = None
 
 
+class DriverInfoOut(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    avatar_url: str | None = None
+    rating: str | None = None
+    vehicle_make: str | None = None
+    vehicle_model: str | None = None
+    vehicle_color: str | None = None
+    vehicle_plate: str | None = None
+
+
 class RideOut(BaseModel):
     id: str
     status: str
@@ -50,6 +61,9 @@ class RideOut(BaseModel):
     currency: str
     created_at: datetime | None = None
     completed_at: datetime | None = None
+    driver: DriverInfoOut | None = None
+    driver_lat: float | None = None
+    driver_lng: float | None = None
 
 
 class DriverLocationIn(BaseModel):
