@@ -171,6 +171,13 @@ class _RideBodyState extends State<_RideBody> {
       widget.ride.status == 'searching' ||
       widget.ride.status == 'offered';
 
+  Color _jamColor(String status) {
+    if (status == 'driver_arrived') return AppTheme.success;
+    if (status == 'driver_arriving') return AppTheme.warning;
+    if (status == 'in_progress') return AppTheme.primary;
+    return AppTheme.primary;
+  }
+
   bool get _hasDriver =>
       widget.ride.driverId != null &&
       (widget.ride.status == 'assigned' ||
@@ -210,8 +217,8 @@ class _RideBodyState extends State<_RideBody> {
                         LatLng(ride.driverLat!, ride.driverLng!),
                         _bishkek,
                       ],
-                      color: AppTheme.warning,
-                      strokeWidth: 5,
+                      color: _jamColor(ride.status),
+                      strokeWidth: 6,
                       borderColor: Colors.white,
                       borderStrokeWidth: 3,
                     ),

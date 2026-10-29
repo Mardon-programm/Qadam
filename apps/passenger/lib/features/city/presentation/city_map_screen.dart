@@ -45,7 +45,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   bool _showQuote = false;
 
   MapConfig? _mapConfig;
-  bool _trafficOn = false;
+  bool _trafficOn = true;
   bool _followUser = true;
   String _tariff = 'economy';
 
@@ -358,21 +358,20 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.passenger',
               ),
-              if (_trafficOn && (_mapConfig?.hasTraffic ?? false))
-                Opacity(
-                  opacity: 0.75,
-                  child: TileLayer(
-                    urlTemplate: _mapConfig!.trafficTileUrl,
-                    subdomains: const [],
-                    userAgentPackageName: 'kg.qadam.passenger',
-                  ),
-                ),
               PolylineLayer(
                 polylines: [
-                  if (route.isNotEmpty)
+                  if (route.isNotEmpty && _trafficOn)
                     Polyline(
                       points: route,
                       color: _trafficColor(traffic),
+                      strokeWidth: 7,
+                      borderColor: Colors.white,
+                      borderStrokeWidth: 3,
+                    ),
+                  if (route.isNotEmpty && !_trafficOn)
+                    Polyline(
+                      points: route,
+                      color: AppTheme.primary,
                       strokeWidth: 6,
                       borderColor: Colors.white,
                       borderStrokeWidth: 3,
@@ -477,16 +476,14 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (_mapConfig?.hasTraffic ?? false) ...[
-                          _MapChip(
-                            icon: Icons.traffic_rounded,
-                            label: 'Пробки',
-                            active: _trafficOn,
-                            onTap: () =>
-                                setState(() => _trafficOn = !_trafficOn),
-                          ),
-                          const SizedBox(width: 10),
-                        ],
+                        _MapChip(
+                          icon: Icons.traffic_rounded,
+                          label: 'Пробки',
+                          active: _trafficOn,
+                          onTap: () =>
+                              setState(() => _trafficOn = !_trafficOn),
+                        ),
+                        const SizedBox(width: 10),
                         _RoundMapButton(
                           icon: Icons.emergency_rounded,
                           onTap: () => showSosSheet(context),
@@ -503,6 +500,16 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
                       ],
                     ),
                   ),
+                  if (_trafficOn && _showQuote) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _TrafficLegend(congestion: traffic),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   if (_showQuote && _pickup != null && _dropoff != null) ...[
                     Padding(
@@ -1021,6 +1028,55 @@ class _MetricPill extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _TrafficLegend extends StatelessWidget {
+  const _TrafficLegend({required this.congestion});
+
+  final String congestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _trafficColor(congestion);
+    final label = switch (congestion) {
+      'heavy' => 'Затруднено',
+      'moderate' => 'Средне',
+      'free' => 'Свободно',
+      _ => 'По пробкам',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.floatShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
             ),
