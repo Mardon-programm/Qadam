@@ -92,6 +92,35 @@ class DriverApiService {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> registerDriver({
+    required String phone,
+    required String fullName,
+    required String password,
+    String? photoBase64,
+  }) async {
+    final r = await _dio.post('/auth/register/driver', data: {
+      'phone': phone,
+      'full_name': fullName,
+      'password': password,
+      if (photoBase64 != null)
+        'photo_url': 'data:image/jpeg;base64,$photoBase64',
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> loginDriver({
+    required String phone,
+    required String fullName,
+    required String password,
+  }) async {
+    final r = await _dio.post('/auth/login/driver', data: {
+      'phone': phone,
+      'full_name': fullName,
+      'password': password,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getMe() async {
     final r = await _dio.get('/auth/me');
     return r.data as Map<String, dynamic>;

@@ -22,6 +22,7 @@ dependencies:
   flutter_map: ^6.1.0
   latlong2: ^0.9.1
   gap: ^3.0.1
+  image_picker: ^1.1.2
   url_launcher: ^6.2.6
   geolocator: ^12.0.0
   permission_handler: ^11.3.1

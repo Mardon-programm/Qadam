@@ -22,12 +22,14 @@ class ApiService {
     String phone,
     String code, {
     String? fullName,
+    String? nickname,
   }) async {
     final r = await _dio.post('/auth/otp/verify', data: {
       'phone': phone,
       'code': code,
       'role': 'passenger',
       if (fullName != null) 'full_name': fullName,
+      if (nickname != null) 'nickname': nickname,
     });
     return TokenResponse.fromJson(r.data as Map<String, dynamic>);
   }

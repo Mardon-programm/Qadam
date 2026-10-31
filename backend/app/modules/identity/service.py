@@ -10,7 +10,9 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
     try_decode_token,
+    verify_password,
 )
 from app.modules.identity.models import AuditEvent, RefreshSession, User
 
@@ -21,6 +23,7 @@ async def get_or_create_user(
     phone: str,
     role: str,
     full_name: str | None = None,
+    nickname: str | None = None,
     locale: str = "ru",
 ) -> User:
     result = await db.execute(select(User).where(User.phone == phone))
@@ -30,6 +33,8 @@ async def get_or_create_user(
             raise ForbiddenError("Account is blocked")
         if full_name and not user.full_name:
             user.full_name = full_name
+        if nickname and not user.nickname:
+            user.nickname = nickname
         user.is_phone_verified = True
         user.last_login_at = datetime.now(UTC)
         # Role upgrade only for empty passenger → requested role on first verify
@@ -54,6 +59,7 @@ async def get_or_create_user(
         phone=phone,
         full_name=full_name
         or (get_settings().ops_bootstrap_name if role == UserRole.OPS else None),
+        nickname=nickname,
         locale=locale if locale in get_settings().locale_list else "ru",
         role=role,
         status=UserStatus.ACTIVE,
@@ -114,6 +120,53 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> dict[str, str]
 
     session.revoked = True
     return await issue_tokens(db, user)
+
+
+async def register_driver(
+    db: AsyncSession,
+    *,
+    phone: str,
+    full_name: str,
+    password: str,
+    photo_url: str | None = None,
+) -> User:
+    existing = await db.execute(select(User).where(User.phone == phone))
+    if existing.scalar_one_or_none():
+        raise ForbiddenError("Phone already registered")
+    user = User(
+        phone=phone,
+        full_name=full_name,
+        password_hash=hash_password(password),
+        photo_url=photo_url,
+        role=UserRole.DRIVER,
+        status=UserStatus.ACTIVE,
+        is_phone_verified=True,
+        last_login_at=datetime.now(UTC),
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+async def login_driver(
+    db: AsyncSession,
+    *,
+    phone: str,
+    full_name: str,
+    password: str,
+) -> User:
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if not user or user.role != UserRole.DRIVER:
+        raise UnauthorizedError("Invalid credentials")
+    if user.full_name != full_name:
+        raise UnauthorizedError("Invalid credentials")
+    if not user.password_hash or not verify_password(password, user.password_hash):
+        raise UnauthorizedError("Invalid credentials")
+    if user.status != UserStatus.ACTIVE:
+        raise ForbiddenError("Account blocked")
+    user.last_login_at = datetime.now(UTC)
+    return user
 
 
 async def write_audit(

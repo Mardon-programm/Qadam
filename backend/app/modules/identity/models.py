@@ -17,6 +17,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     phone: Mapped[str] = mapped_column(String(32), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(255))
+    nickname: Mapped[str | None] = mapped_column(String(64))
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    photo_url: Mapped[str | None] = mapped_column(Text)
     locale: Mapped[str] = mapped_column(String(8), default="ru", nullable=False)
     role: Mapped[str] = mapped_column(String(32), default=UserRole.PASSENGER, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default=UserStatus.ACTIVE, nullable=False)

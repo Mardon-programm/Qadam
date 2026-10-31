@@ -17,6 +17,7 @@ class PhoneScreen extends ConsumerStatefulWidget {
 
 class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _controller = TextEditingController(text: '+996');
+  final _nickCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -32,7 +33,11 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       if (mounted) {
         context.push(
           '/auth/otp',
-          extra: {'phone': _controller.text.trim(), 'code': debugCode},
+          extra: {
+            'phone': _controller.text.trim(),
+            'code': debugCode,
+            'nickname': _nickCtrl.text.trim(),
+          },
         );
       }
     } catch (e) {
@@ -101,6 +106,20 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                               const BoxConstraints(minWidth: 0, minHeight: 0),
                           errorText: _error,
                           errorMaxLines: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _nickCtrl,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Никнейм (имя)',
+                          prefixIcon: Icon(Icons.person_rounded),
                         ),
                       ),
                       const SizedBox(height: 18),

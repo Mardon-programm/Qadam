@@ -53,6 +53,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return OtpScreen(
               phone: extra['phone'] as String,
               debugCode: extra['code'] as String?,
+              nickname: extra['nickname'] as String?,
             );
           }
           return OtpScreen(phone: extra as String);

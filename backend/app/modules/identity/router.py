@@ -4,10 +4,12 @@ from app.core.config import get_settings
 from app.core.deps import CurrentUser, DbSession, RedisDep
 from app.modules.identity import otp, service
 from app.modules.identity.schemas import (
+    LoginDriverIn,
     MeOut,
     OTPRequestIn,
     OTPRequestOut,
     OTPVerifyIn,
+    RegisterDriverIn,
     RefreshIn,
     TokenOut,
 )
@@ -43,6 +45,7 @@ async def verify_otp(
         phone=body.phone,
         role=body.role,
         full_name=body.full_name,
+        nickname=body.nickname,
         locale=body.locale,
     )
     tokens = await service.issue_tokens(
@@ -63,6 +66,63 @@ async def verify_otp(
     return TokenOut(**tokens)
 
 
+@router.post("/register/driver", response_model=TokenOut)
+async def register_driver(
+    body: RegisterDriverIn, request: Request, db: DbSession
+) -> TokenOut:
+    user = await service.register_driver(
+        db,
+        phone=body.phone,
+        full_name=body.full_name,
+        password=body.password,
+        photo_url=body.photo_url,
+    )
+    tokens = await service.issue_tokens(
+        db,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+    )
+    await service.write_audit(
+        db,
+        actor_id=user.id,
+        actor_role=user.role,
+        action="auth.register_driver",
+        object_type="user",
+        object_id=user.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return TokenOut(**tokens)
+
+
+@router.post("/login/driver", response_model=TokenOut)
+async def login_driver(
+    body: LoginDriverIn, request: Request, db: DbSession
+) -> TokenOut:
+    user = await service.login_driver(
+        db,
+        phone=body.phone,
+        full_name=body.full_name,
+        password=body.password,
+    )
+    tokens = await service.issue_tokens(
+        db,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+    )
+    await service.write_audit(
+        db,
+        actor_id=user.id,
+        actor_role=user.role,
+        action="auth.login_driver",
+        object_type="user",
+        object_id=user.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return TokenOut(**tokens)
+
+
 @router.post("/refresh", response_model=TokenOut)
 async def refresh(body: RefreshIn, db: DbSession) -> TokenOut:
     tokens = await service.refresh_tokens(db, body.refresh_token)
@@ -75,6 +135,8 @@ async def me(user: CurrentUser) -> MeOut:
         id=user.id,
         phone=user.phone,
         full_name=user.full_name,
+        nickname=user.nickname,
+        photo_url=user.photo_url,
         role=user.role,
         locale=user.locale,
         status=user.status,

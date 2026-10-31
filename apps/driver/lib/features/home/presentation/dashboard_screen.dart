@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_error.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -123,8 +124,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     } catch (e) {
       HapticFeedback.mediumImpact();
       if (mounted) {
+        final failure = ApiFailure.from(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
+          SnackBar(
+            content: Text(failure.message ?? 'Не удалось выйти в онлайн. Добавьте авто в разделе «Документы».'),
+            backgroundColor: AppTheme.error,
+          ),
         );
       }
     }

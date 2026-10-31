@@ -3,8 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../api/api_service.dart';
 import '../providers/locale_provider.dart';
-import '../../features/auth/presentation/phone_screen.dart';
-import '../../features/auth/presentation/otp_screen.dart';
+import '../../features/auth/presentation/driver_auth_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/home/presentation/dashboard_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
@@ -42,20 +41,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/phone',
-        builder: (_, __) => const PhoneScreen(),
+        builder: (_, __) => const DriverAuthScreen(),
       ),
       GoRoute(
         path: '/auth/otp',
-        builder: (_, state) {
-          final extra = state.extra;
-          if (extra is Map) {
-            return OtpScreen(
-              phone: extra['phone'] as String,
-              debugCode: extra['code'] as String?,
-            );
-          }
-          return OtpScreen(phone: extra as String);
-        },
+        builder: (_, __) => const DriverAuthScreen(),
       ),
       ShellRoute(
         builder: (_, __, child) => HomeShell(child: child),

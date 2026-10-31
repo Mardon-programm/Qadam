@@ -56,9 +56,21 @@ async def documents_allow_online(db: AsyncSession, driver: DriverProfile) -> boo
 
 async def set_online(db: AsyncSession, *, driver: DriverProfile, online: bool) -> DriverProfile:
     if online:
+        # Auto-activate first approved vehicle if none active
+        if not driver.active_vehicle_id:
+            result = await db.execute(
+                select(Vehicle).where(
+                    Vehicle.driver_id == driver.id,
+                    Vehicle.status == VerificationStatus.APPROVED,
+                )
+            )
+            first = result.scalars().first()
+            if first:
+                driver.active_vehicle_id = first.id
+                await db.flush()
         if not await documents_allow_online(db, driver):
             raise ForbiddenError(
-                "Cannot go online: documents/license verification incomplete or expired"
+                "Cannot go online: add and verify a vehicle first"
             )
         driver.online_status = DriverOnlineStatus.ONLINE
     else:

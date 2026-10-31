@@ -267,6 +267,36 @@ async def ops_review_vehicle(
 
 
 @ops_router.post(
+    "/vehicles/{vehicle_id}/approve-business",
+    response_model=VehicleOut,
+    dependencies=[Depends(require_roles(UserRole.OPS))],
+)
+async def ops_approve_business(
+    vehicle_id: str,
+    body: ReviewVehicleIn,
+    db: DbSession,
+) -> VehicleOut:
+    from app.core.config import get_settings
+
+    vehicle = await db.get(Vehicle, vehicle_id)
+    if not vehicle:
+        raise NotFoundError("Vehicle not found")
+    if body.approve:
+        # Require driver rating >= 4.5 for business class
+        profile = await db.get(DriverProfile, vehicle.driver_id)
+        if profile and (profile.rating or 0) < 4.5 and not get_settings().auto_approve_drivers:
+            raise ForbiddenError("Driver rating too low for business class")
+        vehicle.business_approved = True
+        vehicle.vehicle_class = "business"
+    else:
+        vehicle.business_approved = False
+        if vehicle.vehicle_class == "business":
+            vehicle.vehicle_class = "economy"
+    await db.flush()
+    return _vehicle_out(vehicle)
+
+
+@ops_router.post(
     "/{driver_id}/block",
     response_model=DriverProfileOut,
     dependencies=[Depends(require_roles(UserRole.OPS))],

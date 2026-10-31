@@ -12,11 +12,12 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone, this.debugCode});
+  const OtpScreen({super.key, required this.phone, this.debugCode, this.nickname});
   final String phone;
 
   /// Present only while the backend runs with the console SMS provider.
   final String? debugCode;
+  final String? nickname;
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -65,7 +66,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
     try {
       final api = ref.read(apiServiceProvider);
-      final tokens = await api.verifyOtp(widget.phone, _code);
+      final tokens = await api.verifyOtp(widget.phone, _code, nickname: widget.nickname);
       await ref
           .read(authNotifierProvider.notifier)
           .signIn(tokens.accessToken, tokens.refreshToken);

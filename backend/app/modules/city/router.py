@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
@@ -42,6 +44,7 @@ async def _ride_out_full(db: DbSession, order: RideOrder) -> RideOut:
             driver_info = DriverInfoOut(
                 full_name=user.full_name if user else None,
                 phone=user.phone if user else None,
+                avatar_url=user.photo_url if user else None,
                 rating=str(driver.rating) if driver.rating is not None else None,
                 vehicle_make=vehicle.make if vehicle else None,
                 vehicle_model=vehicle.model if vehicle else None,
@@ -212,6 +215,11 @@ async def complete(ride_id: str, db: DbSession, user: CurrentUser) -> RideOut:
         new_status=RideOrderStatus.COMPLETED,
     )
     if not order.ledger_posted and order.final_price is not None:
+        # Business class earns 30% more
+        if order.vehicle_id:
+            veh = await db.get(Vehicle, order.vehicle_id)
+            if veh and veh.vehicle_class == "business" and veh.business_approved:
+                order.driver_net_estimate = (order.driver_net_estimate or 0) * Decimal("1.3")
         await post_ride_completion(
             db,
             ride_id=order.id,

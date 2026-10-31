@@ -18,7 +18,21 @@ class OTPVerifyIn(BaseModel):
     code: str
     role: str = Field(default="passenger", pattern="^(passenger|driver|ops)$")
     full_name: str | None = None
+    nickname: str | None = None
     locale: str = "ru"
+
+
+class RegisterDriverIn(BaseModel):
+    phone: str = Field(..., examples=["+996700123456"])
+    full_name: str = Field(..., min_length=2, max_length=255)
+    password: str = Field(..., min_length=6, max_length=128)
+    photo_url: str | None = None
+
+
+class LoginDriverIn(BaseModel):
+    phone: str
+    full_name: str
+    password: str
 
 
 class TokenOut(BaseModel):
@@ -38,6 +52,8 @@ class MeOut(BaseModel):
     id: str
     phone: str
     full_name: str | None
+    nickname: str | None = None
+    photo_url: str | None = None
     role: str
     locale: str
     status: str

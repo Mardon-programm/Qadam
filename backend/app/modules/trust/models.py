@@ -62,6 +62,7 @@ class Vehicle(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     year: Mapped[int | None]
     seats: Mapped[int] = mapped_column(default=4, nullable=False)
     vehicle_class: Mapped[str] = mapped_column(String(32), default="economy")
+    business_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(
         String(32), default=VerificationStatus.PENDING, nullable=False
     )
