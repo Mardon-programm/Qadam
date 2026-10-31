@@ -39,6 +39,7 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
   bool _loading = true;
   String? _error;
   MapConfig? _mapConfig;
+  String _tileUrl = _baseTiles;
   bool _trafficOn = true;
   String _tariff = 'economy';
   StreamSubscription<Position>? _posSub;
@@ -60,7 +61,14 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
   Future<void> _loadConfig() async {
     try {
       final c = await ref.read(apiServiceProvider).getMapConfig();
-      if (mounted) setState(() => _mapConfig = c);
+      if (mounted) {
+        setState(() {
+          _mapConfig = c;
+          if (c.tileUrlTemplate != null && c.tileUrlTemplate!.isNotEmpty) {
+            _tileUrl = c.tileUrlTemplate!;
+          }
+        });
+      }
     } catch (_) {}
   }
 
@@ -237,7 +245,7 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: _baseTiles,
+                urlTemplate: _tileUrl,
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.passenger',
               ),

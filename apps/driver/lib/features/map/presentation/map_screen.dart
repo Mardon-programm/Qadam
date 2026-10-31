@@ -43,6 +43,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _routeLoading = false;
   Timer? _offersTimer;
   String? _trafficTileUrl;
+  String _tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png';
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _initLocation();
     _loadOffers();
     _loadTraffic();
+    _loadTiles();
     _offersTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted) return;
       _loadOffers();
@@ -67,6 +69,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     try {
       final url = await ref.read(driverApiProvider).getTrafficTileUrl();
       if (mounted) setState(() => _trafficTileUrl = url);
+    } catch (_) {}
+  }
+
+  Future<void> _loadTiles() async {
+    try {
+      final url = await ref.read(driverApiProvider).getMapTileUrl();
+      if (mounted && url != null && url.isNotEmpty) {
+        setState(() => _tileUrl = url);
+      }
     } catch (_) {}
   }
 
@@ -392,7 +403,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: _baseTiles,
+                urlTemplate: _tileUrl,
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.driver',
               ),

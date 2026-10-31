@@ -337,14 +337,23 @@ class PlaceSuggestion {
 }
 
 class MapConfig {
+  final String? tileUrlTemplate;
+  final String? tileAttribution;
   final String? trafficTileUrl;
   final String? trafficAttribution;
 
-  const MapConfig({this.trafficTileUrl, this.trafficAttribution});
+  const MapConfig({
+    this.tileUrlTemplate,
+    this.tileAttribution,
+    this.trafficTileUrl,
+    this.trafficAttribution,
+  });
 
   bool get hasTraffic => trafficTileUrl != null && trafficTileUrl!.isNotEmpty;
 
   factory MapConfig.fromJson(Map<String, dynamic> j) => MapConfig(
+        tileUrlTemplate: j['tile_url_template'] as String?,
+        tileAttribution: j['tile_attribution'] as String?,
         trafficTileUrl: j['traffic_tile_url'] as String?,
         trafficAttribution: j['traffic_attribution'] as String?,
       );

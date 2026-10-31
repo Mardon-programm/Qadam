@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/api/api_service.dart';
 import '../../../core/api/models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
@@ -32,6 +33,7 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
   bool _cancelling = false;
   late AnimationController _pulseCtrl;
   final _mapController = MapController();
+  String _tileUrl = _baseTiles;
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       ref.read(cityRideNotifierProvider.notifier).refreshRide(widget.rideId);
     });
+    _loadTiles();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(cityRideNotifierProvider.notifier).refreshRide(widget.rideId);
     });
@@ -53,6 +56,15 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
     _pollTimer?.cancel();
     _pulseCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTiles() async {
+    try {
+      final c = await ref.read(apiServiceProvider).getMapConfig();
+      if (mounted && c.tileUrlTemplate != null && c.tileUrlTemplate!.isNotEmpty) {
+        setState(() => _tileUrl = c.tileUrlTemplate!);
+      }
+    } catch (_) {}
   }
 
   Future<void> _cancel() async {
@@ -108,6 +120,7 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen>
             pulseCtrl: _pulseCtrl,
             mapController: _mapController,
             cancelling: _cancelling,
+            tileUrl: _tileUrl,
             onCancel: _cancel,
             onHome: () => context.go('/home'),
             onCall: (p) => _callDriver(p),
@@ -124,6 +137,7 @@ class _RideBody extends StatefulWidget {
     required this.pulseCtrl,
     required this.mapController,
     required this.cancelling,
+    required this.tileUrl,
     required this.onCancel,
     required this.onHome,
     required this.onCall,
@@ -133,6 +147,7 @@ class _RideBody extends StatefulWidget {
   final AnimationController pulseCtrl;
   final MapController mapController;
   final bool cancelling;
+  final String tileUrl;
   final VoidCallback onCancel;
   final VoidCallback onHome;
   final ValueChanged<String> onCall;
@@ -205,7 +220,7 @@ class _RideBodyState extends State<_RideBody> {
             ),
             children: [
               TileLayer(
-                urlTemplate: _baseTiles,
+                urlTemplate: widget.tileUrl,
                 subdomains: _subdomains,
                 userAgentPackageName: 'kg.qadam.passenger',
               ),

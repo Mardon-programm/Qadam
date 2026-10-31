@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     osrm_url: str = "https://router.project-osrm.org"
     geocoder_url: str = "https://nominatim.openstreetmap.org"
     geocoder_contact: str = "dev@qadam.kg"
+    # Base map tiles. Defaults to free CARTO Voyager (no key). Set a custom
+    # template (with {z}/{x}/{y} and optional {s}) plus a key for a provider
+    # like MapTiler/Mapbox/Thunderforest/Stadia if you want higher limits.
+    map_tile_url_template: str = ""
+    map_tile_attribution: str = "© OpenStreetMap contributors © CARTO"
     # Optional live traffic tiles (TomTom flow tiles, HERE, etc). The template
     # must contain {z}/{x}/{y}; the key stays on the server.
     traffic_tile_url_template: str = ""

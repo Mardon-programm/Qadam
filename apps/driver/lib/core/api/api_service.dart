@@ -197,6 +197,18 @@ class DriverApiService {
     }
   }
 
+  /// Map tile URL template from server config (falls back to default).
+  Future<String?> getMapTileUrl() async {
+    try {
+      final r = await _dio.get('/geo/map-config');
+      final data = r.data as Map<String, dynamic>;
+      final url = data['tile_url_template'] as String?;
+      return (url == null || url.isEmpty) ? null : url;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Current assigned/in-progress ride, or null when the driver is free.
   Future<Map<String, dynamic>?> getActiveRide() async {
     final r = await _dio.get('/city/driver/active-ride');

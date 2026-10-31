@@ -157,11 +157,14 @@ async def road_route(
 @router.get("/map-config")
 async def map_config() -> dict[str, Any]:
     settings = get_settings()
-    template = settings.traffic_tile_url_template.strip()
+    traffic_template = settings.traffic_tile_url_template.strip()
+    tile_template = settings.map_tile_url_template.strip() or "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
     return {
+        "tile_url_template": tile_template,
+        "tile_attribution": settings.map_tile_attribution or "© OpenStreetMap contributors © CARTO",
         # Empty string means live traffic is not configured — the app hides
         # the toggle instead of showing fake jams.
-        "traffic_tile_url": template or None,
+        "traffic_tile_url": traffic_template or None,
         "traffic_attribution": settings.traffic_tile_attribution or None,
         "geocoding": True,
     }
