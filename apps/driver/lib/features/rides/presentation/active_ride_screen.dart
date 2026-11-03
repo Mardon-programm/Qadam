@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -149,6 +150,21 @@ class _ActiveRideScreenState extends ConsumerState<ActiveRideScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _navigate() async {
+    final ride = _ride;
+    if (ride == null) return;
+    final lat = ride['pickup_lat'];
+    final lng = ride['pickup_lng'];
+    final status = ride['status'] as String?;
+    // Navigate to pickup if not yet started, else to dropoff
+    final targetLat = (status == 'in_progress') ? ride['dropoff_lat'] : lat;
+    final targetLng = (status == 'in_progress') ? ride['dropoff_lng'] : lng;
+    if (targetLat == null || targetLng == null) return;
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$targetLat,$targetLng&travelmode=driving');
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _showError(Object e) {
@@ -301,27 +317,42 @@ class _ActiveRideScreenState extends ConsumerState<ActiveRideScreen> {
                         16,
                         MediaQuery.of(context).padding.bottom + 16,
                       ),
-                      child: status == 'assigned' || status == 'driver_arrived'
-                          ? QadamActionButton(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (status != 'completed' && status != 'cancelled')
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: QadamActionButton(
+                                label: 'Открыть в навигаторе',
+                                onTap: _navigate,
+                                style: QadamButtonStyle.soft,
+                                icon: Icons.navigation_rounded,
+                                height: 48,
+                              ),
+                            ),
+                          if (status == 'assigned' || status == 'driver_arrived')
+                            QadamActionButton(
                               label: status == 'assigned'
                                   ? 'Начать поездку'
-                                  : 'Начать поездку',
+                                  : 'Пассажир на месте — начать',
                               onTap: _busy ? null : _start,
                               loading: _busy,
                               icon: Icons.play_arrow_rounded,
                             )
-                          : status == 'in_progress'
-                              ? QadamActionButton(
-                                  label: 'Завершить поездку',
-                                  onTap: _busy ? null : _complete,
-                                  loading: _busy,
-                                  icon: Icons.flag_rounded,
-                                )
-                              : QadamActionButton(
-                                  label: 'На главную',
-                                  onTap: () => context.go('/dashboard'),
-                                  icon: Icons.home_rounded,
-                                ),
+                          else if (status == 'in_progress')
+                            _SwipeToComplete(
+                              loading: _busy,
+                              onComplete: _busy ? null : _complete,
+                            )
+                          else
+                            QadamActionButton(
+                              label: 'На главную',
+                              onTap: () => context.go('/dashboard'),
+                              icon: Icons.home_rounded,
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -563,5 +594,93 @@ class _PaymentHint extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SwipeToComplete extends StatefulWidget {
+  const _SwipeToComplete({required this.loading, required this.onComplete});
+  final bool loading;
+  final VoidCallback? onComplete;
+
+  @override
+  State<_SwipeToComplete> createState() => _SwipeToCompleteState();
+}
+
+class _SwipeToCompleteState extends State<_SwipeToComplete> {
+  double _drag = 0;
+  bool _done = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final knob = 56.0;
+      final maxDrag = width - knob - 8;
+      return Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: AppTheme.divider),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Text(
+                widget.loading ? 'Завершаем...' : 'Проведите вправо для завершения',
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 4 + _drag,
+              top: 4,
+              child: GestureDetector(
+                onHorizontalDragUpdate: widget.onComplete == null
+                    ? null
+                    : (d) {
+                        setState(() {
+                          _drag = (_drag + d.delta.dx).clamp(0.0, maxDrag);
+                        });
+                      },
+                onHorizontalDragEnd: widget.onComplete == null
+                    ? null
+                    : (_) {
+                        if (_drag >= maxDrag * 0.85) {
+                          setState(() => _done = true);
+                          widget.onComplete?.call();
+                        } else {
+                          setState(() => _drag = 0);
+                        }
+                      },
+                child: Container(
+                  width: knob,
+                  height: knob,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.brandGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: AppTheme.floatShadow,
+                  ),
+                  child: widget.loading
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.arrow_forward_rounded,
+                          color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 }

@@ -100,7 +100,10 @@ class _VehicleManageScreenState extends ConsumerState<VehicleManageScreen> {
                       ..._vehicles.map(
                         (v) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: _VehicleCard(v: v as Map<String, dynamic>),
+                          child: _VehicleCard(
+                            v: v as Map<String, dynamic>,
+                            onChanged: _loadVehicles,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -310,61 +313,132 @@ class _VehiclesHeader extends StatelessWidget {
   }
 }
 
-class _VehicleCard extends StatelessWidget {
-  const _VehicleCard({required this.v});
+class _VehicleCard extends ConsumerWidget {
+  const _VehicleCard({required this.v, required this.onChanged});
   final Map<String, dynamic> v;
+  final VoidCallback onChanged;
+
+  static const _tariffs = [
+    ('economy', 'Эконом', Icons.directions_car_rounded),
+    ('comfort', 'Комфорт', Icons.airline_seat_recline_extra_rounded),
+    ('business', 'Бизнес', Icons.workspace_premium_rounded),
+    ('cargo', 'Грузовой', Icons.local_shipping_rounded),
+  ];
+
+  Future<void> _changeTariff(BuildContext context, WidgetRef ref, String cls) async {
+    try {
+      final api = ref.read(driverApiProvider);
+      await api.updateVehicleTariff(v['id'] as String, cls);
+      onChanged();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Тариф обновлён'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final active = v['status'] == 'active';
+    final cls = (v['vehicle_class'] as String?) ?? 'economy';
     return QadamCard(
       radius: 22,
       padding: const EdgeInsets.all(16),
       borderColor:
           active ? AppTheme.primary.withValues(alpha: 0.35) : null,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const QadamIconBadge(
-            icon: Icons.directions_car_filled_rounded,
-            size: 50,
+          Row(
+            children: [
+              const QadamIconBadge(
+                icon: Icons.directions_car_filled_rounded,
+                size: 50,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${v['make']} ${v['model']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${v['plate_number']} • ${v['color']} • ${v['year']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (active)
+                const QadamTag(
+                  label: 'Активный',
+                  color: AppTheme.success,
+                  background: AppTheme.mint,
+                ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${v['make']} ${v['model']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _tariffs.map((t) {
+              final selected = t.$1 == cls;
+              return GestureDetector(
+                onTap: () => _changeTariff(context, ref, t.$1),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? AppTheme.primary : AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: selected ? AppTheme.primary : AppTheme.divider,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(t.$3, size: 14,
+                          color: selected ? Colors.white : AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        t.$2,
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: selected ? Colors.white : AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${v['plate_number']} • ${v['color']} • ${v['year']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+              );
+            }).toList(),
           ),
-          if (active)
-            const QadamTag(
-              label: 'Активный',
-              color: AppTheme.success,
-              background: AppTheme.mint,
-            ),
         ],
       ),
     );

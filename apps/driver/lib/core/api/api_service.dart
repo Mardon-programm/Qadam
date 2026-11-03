@@ -147,6 +147,13 @@ class DriverApiService {
     return r.data as List;
   }
 
+  Future<Map<String, dynamic>> updateVehicleTariff(String vehicleId, String vehicleClass) async {
+    final r = await _dio.put('/driver/vehicles/$vehicleId/tariff', data: {
+      'vehicle_class': vehicleClass,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> addVehicle(Map<String, dynamic> data) async {
     final r = await _dio.post('/driver/vehicles', data: data);
     return r.data as Map<String, dynamic>;

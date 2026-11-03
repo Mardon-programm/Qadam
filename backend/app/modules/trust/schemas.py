@@ -68,3 +68,7 @@ class ReviewDocumentIn(BaseModel):
 class ReviewVehicleIn(BaseModel):
     approve: bool
     rejection_reason: str | None = None
+
+
+class UpdateTariffIn(BaseModel):
+    vehicle_class: str

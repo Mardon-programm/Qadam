@@ -49,6 +49,10 @@ class RideOut(BaseModel):
     status: str
     pickup_address: str
     dropoff_address: str
+    pickup_lat: float | None = None
+    pickup_lng: float | None = None
+    dropoff_lat: float | None = None
+    dropoff_lng: float | None = None
     quoted_price: Decimal | None
     final_price: Decimal | None
     surge_multiplier: Decimal

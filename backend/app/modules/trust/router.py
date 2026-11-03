@@ -29,6 +29,7 @@ from app.modules.trust.schemas import (
     OnlineIn,
     ReviewDocumentIn,
     ReviewVehicleIn,
+    UpdateTariffIn,
     VehicleIn,
     VehicleOut,
 )
@@ -263,6 +264,32 @@ async def ops_review_vehicle(
     db: DbSession,
 ) -> VehicleOut:
     vehicle = await service.review_vehicle(db, vehicle_id=vehicle_id, approve=body.approve)
+    return _vehicle_out(vehicle)
+
+
+@router.put(
+    "/vehicles/{vehicle_id}/tariff",
+    response_model=VehicleOut,
+    dependencies=[Depends(require_roles(UserRole.DRIVER))],
+)
+async def update_vehicle_tariff(
+    vehicle_id: str,
+    body: UpdateTariffIn,
+    db: DbSession,
+    user: CurrentUser,
+) -> VehicleOut:
+    profile = await service.get_or_create_driver_profile(db, user.id)
+    vehicle = await db.get(Vehicle, vehicle_id)
+    if not vehicle or vehicle.driver_id != profile.id:
+        raise NotFoundError("Vehicle not found")
+    allowed = {"economy", "comfort", "business", "cargo"}
+    if body.vehicle_class not in allowed:
+        raise ForbiddenError(f"Unknown tariff: {body.vehicle_class}")
+    # Business requires ops approval
+    if body.vehicle_class == "business" and not vehicle.business_approved:
+        raise ForbiddenError("Business class requires moderation approval")
+    vehicle.vehicle_class = body.vehicle_class
+    await db.flush()
     return _vehicle_out(vehicle)
 
 
