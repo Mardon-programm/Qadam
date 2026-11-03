@@ -46,7 +46,10 @@ class Settings(BaseSettings):
     payment_provider: str = "mock"
     payment_webhook_secret: str = "dev-webhook-secret"
 
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "https://qadam-ops.vercel.app,https://qadam-ops-git-main-*.vercel.app"
+    )
 
     ops_bootstrap_phone: str = "+996700000001"
     ops_bootstrap_name: str = "Qadam Ops"

@@ -319,9 +319,13 @@ class _VehicleCard extends ConsumerWidget {
   final VoidCallback onChanged;
 
   static const _tariffs = [
+    ('free', 'Free', Icons.local_taxi_rounded),
+    ('free_plus', 'Free+', Icons.smartphone_rounded),
     ('economy', 'Эконом', Icons.directions_car_rounded),
     ('comfort', 'Комфорт', Icons.airline_seat_recline_extra_rounded),
     ('business', 'Бизнес', Icons.workspace_premium_rounded),
+    ('minivan', 'Минивэн', Icons.people_alt_rounded),
+    ('vip', 'VIP', Icons.emoji_events_rounded),
     ('cargo', 'Грузовой', Icons.local_shipping_rounded),
   ];
 

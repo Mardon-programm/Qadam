@@ -1,7 +1,8 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import Cookies from 'js-cookie'
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+const BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://qadam-nc9f.onrender.com/api/v1'
 
 const ACCESS_KEY = 'qadam_ops_access'
 const REFRESH_KEY = 'qadam_ops_refresh'

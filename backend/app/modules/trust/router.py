@@ -282,7 +282,7 @@ async def update_vehicle_tariff(
     vehicle = await db.get(Vehicle, vehicle_id)
     if not vehicle or vehicle.driver_id != profile.id:
         raise NotFoundError("Vehicle not found")
-    allowed = {"economy", "comfort", "business", "cargo"}
+    allowed = {"free", "free_plus", "economy", "comfort", "business", "minivan", "vip", "cargo"}
     if body.vehicle_class not in allowed:
         raise ForbiddenError(f"Unknown tariff: {body.vehicle_class}")
     # Business requires ops approval

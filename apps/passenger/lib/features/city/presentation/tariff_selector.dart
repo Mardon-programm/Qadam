@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/qadam_ui.dart';
 
 class Tariff {
   final String id;
@@ -20,6 +19,20 @@ class Tariff {
 
 const kTariffs = [
   Tariff(
+    id: 'free',
+    name: 'Free',
+    subtitle: 'Полностью бесплатный',
+    icon: Icons.local_taxi_rounded,
+    multiplier: 0.0,
+  ),
+  Tariff(
+    id: 'free_plus',
+    name: 'Free+',
+    subtitle: 'Бесплатный + помощь',
+    icon: Icons.support_agent_rounded,
+    multiplier: 0.0,
+  ),
+  Tariff(
     id: 'economy',
     name: 'Эконом',
     subtitle: 'Самый доступный',
@@ -32,6 +45,27 @@ const kTariffs = [
     subtitle: 'Чуть просторнее и комфортнее',
     icon: Icons.airline_seat_recline_extra_rounded,
     multiplier: 1.25,
+  ),
+  Tariff(
+    id: 'business',
+    name: 'Бизнес',
+    subtitle: 'Классный салон',
+    icon: Icons.workspace_premium_rounded,
+    multiplier: 1.55,
+  ),
+  Tariff(
+    id: 'minivan',
+    name: 'Минивэн',
+    subtitle: 'Для семьи и багажа',
+    icon: Icons.people_alt_rounded,
+    multiplier: 1.8,
+  ),
+  Tariff(
+    id: 'vip',
+    name: 'VIP',
+    subtitle: 'Премиум-опыт',
+    icon: Icons.emoji_events_rounded,
+    multiplier: 2.3,
   ),
 ];
 
