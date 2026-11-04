@@ -14,7 +14,7 @@ import '../../../shared/widgets/qadam_ui.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
-const _kgBounds = LatLngBounds(
+final _kgBounds = LatLngBounds(
   LatLng(39.15, 69.20),
   LatLng(43.60, 80.70),
 );
