@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/api/models.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/storage/favorites.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 import '../data/city_provider.dart';
@@ -32,6 +33,7 @@ class CityHomeScreen extends ConsumerStatefulWidget {
 
 class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
   final _mapController = MapController();
+  final _favorites = FavoritesStorage();
   LatLng? _pickup;
   LatLng? _dropoff;
   String _pickupAddress = 'Определяем местоположение...';
@@ -44,12 +46,21 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
   String _tariff = 'economy';
   StreamSubscription<Position>? _posSub;
   int _reverseId = 0;
+  List<SavedPlace> _recent = const [];
 
   @override
   void initState() {
     super.initState();
     _loadConfig();
+    _loadRecent();
     _init();
+  }
+
+  Future<void> _loadRecent() async {
+    try {
+      final recent = await _favorites.getRecent();
+      if (mounted) setState(() => _recent = recent);
+    } catch (_) {}
   }
 
   @override
@@ -201,6 +212,14 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
             dropoffLng: _dropoff!.longitude,
             surge: tariffSurgeForId(_tariff),
           );
+      if (_dropoff != null) {
+        unawaited(_favorites.addRecent(SavedPlace(
+          label: _dropoffAddress.split(',').first.trim(),
+          address: _dropoffAddress,
+          lat: _dropoff!.latitude,
+          lng: _dropoff!.longitude,
+        )));
+      }
       if (mounted) context.go('/rides/${ride.id}');
     } catch (e) {
       if (mounted) {
@@ -320,31 +339,129 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
             left: 16,
             right: 16,
             top: pad.top + 8,
-            child: QadamCard(
-              radius: 20,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _Row(
-                    dot: const _Dot(gradient: AppTheme.brandGradient),
-                    label: 'Откуда',
-                    value: _pickupAddress,
-                    onTap: () => _pick(true),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                QadamCard(
+                  radius: 20,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Row(
+                        dot: const _Dot(gradient: AppTheme.brandGradient),
+                        label: 'Откуда',
+                        value: _pickupAddress,
+                        onTap: () => _pick(true),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Divider(height: 1),
+                      ),
+                      _Row(
+                        dot: const _Dot(color: AppTheme.ink),
+                        label: 'Куда',
+                        value: _dropoffAddress.isEmpty ? 'Куда поедем?' : _dropoffAddress,
+                        onTap: () => _pick(false),
+                        muted: _dropoffAddress.isEmpty,
+                      ),
+                    ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Divider(height: 1),
+                ),
+                if (_recent.isNotEmpty && _dropoffAddress.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: Text(
+                              'Недавние',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF6B6B6B),
+                              ),
+                            ),
+                          ),
+                          for (final place in _recent.take(3))
+                            InkWell(
+                              onTap: () {
+                                final pt = LatLng(place.lat, place.lng);
+                                setState(() {
+                                  _dropoff = pt;
+                                  _dropoffAddress = place.address;
+                                });
+                                _mapController.move(pt, 16);
+                                _goQuote();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF6F6F6),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.history_rounded, size: 18, color: Color(0xFF1F1F1F)),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            place.label.isNotEmpty ? place.label : place.address,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1F1F1F),
+                                            ),
+                                          ),
+                                          Text(
+                                            place.address,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF6B6B6B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _Row(
-                    dot: const _Dot(color: AppTheme.ink),
-                    label: 'Куда',
-                    value: _dropoffAddress.isEmpty ? 'Куда поедем?' : _dropoffAddress,
-                    onTap: () => _pick(false),
-                    muted: _dropoffAddress.isEmpty,
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
           if (_loading)
