@@ -67,18 +67,17 @@ SessionLocal = _create_sessionmaker(engine)
 async def ensure_database() -> str:
     """Verify the database is reachable, falling back to SQLite if it is not.
 
-    Render can start the container without a working ``DATABASE_URL`` (the
-    setting then points at localhost), which made every login fail with HTTP
-    500. The fallback keeps login/registration usable, but its data lives in
-    the container and is lost on redeploy — a real Postgres URL is still the
-    production setup. Failures are logged and reported via ``/health``.
+    Render starts the container by running ``alembic upgrade head`` first
+    (see backend/start.sh), so the PostgreSQL schema is managed by Alembic
+    migrations — not by ``create_all``. Here we only verify connectivity.
+    For the SQLite fallback (local dev without Postgres), we still create
+    tables via ``create_all`` since Alembic isn't run locally.
     """
     global engine, SessionLocal, active_database_url, database_mode
 
     try:
         async with asyncio.timeout(settings.database_connect_timeout_seconds):
-            async with engine.begin() as connection:
-                await connection.run_sync(Base.metadata.create_all)
+            async with engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
         database_mode = "primary"
         return database_mode
