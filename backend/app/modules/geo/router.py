@@ -81,19 +81,15 @@ async def search_places(
     q: str = Query(min_length=2, max_length=160),
     lat: float | None = None,
     lng: float | None = None,
-    limit: int = Query(default=6, ge=1, le=10),
+    limit: int = Query(default=10, ge=1, le=20),
 ) -> dict[str, Any]:
     params: dict[str, Any] = {
         "q": q,
         "format": "jsonv2",
         "limit": limit,
-        "addressdetails": 0,
+        "addressdetails": 1,
         "accept-language": "ru,ky,en",
     }
-    if lat is not None and lng is not None:
-        # Prefer results around the passenger, without hiding the rest.
-        params["viewbox"] = f"{lng - 0.6},{lat + 0.45},{lng + 0.6},{lat - 0.45}"
-        params["bounded"] = 0
 
     key = f"s:{q.lower()}:{round(lat or 0, 2)}:{round(lng or 0, 2)}:{limit}"
     try:
