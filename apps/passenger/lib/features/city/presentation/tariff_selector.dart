@@ -97,56 +97,72 @@ class TariffSelector extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 0, 4, 10),
           child: Text(
-            'Тариф',
+            'Выберите тариф',
             style: TextStyle(
               fontFamily: 'Manrope',
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: AppTheme.textPrimary,
             ),
           ),
         ),
         SizedBox(
-          height: 96,
+          height: 90,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: kTariffs.length,
-            padding: const EdgeInsets.only(right: 6),
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final t = kTariffs[index];
               final selected = t.id == selectedId;
               return SizedBox(
-                width: 180,
+                width: 172,
                 child: GestureDetector(
                   onTap: () => onChanged(t.id),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                     decoration: BoxDecoration(
-                      gradient: selected ? AppTheme.brandGradient : null,
-                      color: selected ? null : Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      color: selected ? const Color(0xFF1F1F1F) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: selected ? Colors.transparent : AppTheme.divider,
+                        color: selected ? const Color(0xFF1F1F1F) : const Color(0xFFE8E8E8),
+                        width: selected ? 2 : 1,
                       ),
-                      boxShadow: selected ? AppTheme.floatShadow : AppTheme.softShadow,
+                      boxShadow: selected
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x1A000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              )
+                            ]
+                          : const [
+                              BoxShadow(
+                                color: Color(0x0A000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              )
+                            ],
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
                             color: selected
-                                ? Colors.white.withValues(alpha: 0.22)
-                                : AppTheme.lavender,
-                            borderRadius: BorderRadius.circular(12),
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : const Color(0xFFF6F6F6),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(t.icon,
-                              color: selected ? Colors.white : AppTheme.primary,
-                              size: 20),
+                          child: Icon(
+                            t.icon,
+                            color: selected ? Colors.white : const Color(0xFF1F1F1F),
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -160,21 +176,21 @@ class TariffSelector extends StatelessWidget {
                                   fontFamily: 'Manrope',
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
-                                  color: selected ? Colors.white : AppTheme.textPrimary,
+                                  color: selected ? Colors.white : const Color(0xFF1F1F1F),
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 t.subtitle,
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'Manrope',
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: selected
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : AppTheme.textSecondary,
+                                      ? Colors.white.withValues(alpha: 0.7)
+                                      : const Color(0xFF6B6B6B),
                                 ),
                               ),
                             ],

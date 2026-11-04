@@ -132,39 +132,50 @@ class _RideOfferDetails extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
               Transform.translate(
-                offset: const Offset(0, -30),
+                offset: const Offset(0, -40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    QadamCard(
-                      radius: 26,
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          _RouteRow(
-                            dot: null,
-                            label: 'Посадка',
-                            address: ride['pickup_address'] as String? ?? '—',
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 5),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 2,
-                                  height: 26,
-                                  color: AppTheme.divider,
-                                ),
-                              ],
-                            ),
-                          ),
-                          _RouteRow(
-                            dot: AppTheme.ink,
-                            label: 'Назначение',
-                            address:
-                                ride['dropoff_address'] as String? ?? '—',
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x14000000),
+                            blurRadius: 24,
+                            offset: Offset(0, 12),
                           ),
                         ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            _RouteRow(
+                              dot: const Color(0xFF22C55E),
+                              label: 'Откуда',
+                              address: ride['pickup_address'] as String? ?? '—',
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 5),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 2,
+                                    height: 28,
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _RouteRow(
+                              dot: const Color(0xFF1F1F1F),
+                              label: 'Куда',
+                              address: ride['dropoff_address'] as String? ?? '—',
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -193,30 +204,40 @@ class _RideOfferDetails extends StatelessWidget {
                     ),
                     if (_price != null) ...[
                       const SizedBox(height: 12),
-                      QadamCard(
-                        radius: 20,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
                         ),
-                        color: AppTheme.mint,
-                        borderColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.verified_rounded,
-                              color: AppTheme.success,
-                              size: 18,
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF22C55E).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFF22C55E),
+                                size: 18,
+                              ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             const Expanded(
                               child: Text(
-                                'Комиссия Qadam 0% — вся сумма ваша',
+                                'Без комиссии • Наличные',
                                 style: TextStyle(
                                   fontFamily: 'Manrope',
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.success,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF166534),
                                 ),
                               ),
                             ),
@@ -224,9 +245,9 @@ class _RideOfferDetails extends StatelessWidget {
                               '${_price!.toStringAsFixed(0)} сом',
                               style: const TextStyle(
                                 fontFamily: 'Manrope',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF166534),
                               ),
                             ),
                           ],
@@ -234,26 +255,25 @@ class _RideOfferDetails extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 12),
-                    QadamCard(
-                      radius: 20,
-                      padding: const EdgeInsets.all(16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE8E8E8)),
+                      ),
+                      padding: const EdgeInsets.all(14),
                       child: const Row(
                         children: [
-                          QadamIconBadge(
-                            icon: Icons.payments_rounded,
-                            color: AppTheme.warning,
-                            size: 40,
-                          ),
-                          SizedBox(width: 12),
+                          Icon(Icons.payments_rounded, color: Color(0xFF1F1F1F), size: 22),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Оплата наличными или переводом — без онлайн-платежа',
+                              'Оплата только наличными',
                               style: TextStyle(
                                 fontFamily: 'Manrope',
-                                fontSize: 12,
-                                height: 1.4,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1F1F1F),
                               ),
                             ),
                           ),
@@ -266,34 +286,86 @@ class _RideOfferDetails extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            8,
-            16,
-            MediaQuery.of(context).padding.bottom + 16,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: QadamActionButton(
-                  label: 'Отклонить',
-                  onTap: declining ? null : onDecline,
-                  style: QadamButtonStyle.ghost,
-                  loading: declining,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: QadamActionButton(
-                  label: 'Принять заказ',
-                  onTap: accepting ? null : onAccept,
-                  loading: accepting,
-                  icon: Icons.check_rounded,
-                ),
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 16,
+                offset: Offset(0, -4),
               ),
             ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              MediaQuery.of(context).padding.bottom + 12,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 54,
+                    child: OutlinedButton(
+                      onPressed: declining ? null : onDecline,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1F1F1F),
+                        side: const BorderSide(color: Color(0xFFE8E8E8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        declining ? 'Отклоняем...' : 'Отклонить',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: accepting ? null : onAccept,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1F1F1F),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (accepting)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          else
+                            const Icon(Icons.check_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            accepting ? 'Принятие...' : 'Принять заказ',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
