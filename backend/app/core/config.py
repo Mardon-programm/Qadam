@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://qadam:qadam_dev_password@localhost:5432/qadam"
     database_connect_timeout_seconds: float = 5.0
-    database_fallback_enabled: bool = True
+    database_fallback_enabled: bool = False
     fallback_database_url: str = "sqlite+aiosqlite:////tmp/qadam-fallback.db"
     redis_url: str = "redis://localhost:6379/0"
 
