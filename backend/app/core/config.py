@@ -115,10 +115,13 @@ class Settings(BaseSettings):
             value = "postgresql+asyncpg://" + value[len("postgres://") :]
         if value.startswith("postgresql://"):
             value = "postgresql+asyncpg://" + value[len("postgresql://") :]
-        # Remove sslmode=require which asyncpg does not accept
+        # Remove sslmode=require and channel_binding which asyncpg does not accept
+        # (those are psycopg/psycopg2 parameters, not asyncpg)
         if "?" in value:
             base, qs = value.split("?", 1)
-            params = [p for p in qs.split("&") if not p.startswith("sslmode=")]
+            params = [p for p in qs.split("&")
+                      if not p.startswith("sslmode=")
+                      and not p.startswith("channel_binding=")]
             value = base + ("?" + "&".join(params) if params else "")
         return value
 
