@@ -79,7 +79,10 @@ def quote_city_fare(
             rounded = float(settings.city_min_fare)
         price = Decimal(str(int(rounded)))
 
-    commission = _money(price * Decimal(str(settings.flex_commission_rate)))
+    driver_commission_rate = Decimal(str(settings.driver_commission_rate or settings.flex_commission_rate))
+    service_fee_rate = Decimal(str(settings.passenger_service_fee_rate))
+    commission = _money(price * driver_commission_rate)
+    service_fee = _money(price * service_fee_rate)
     driver_net = _money(price - commission)
     return {
         "quoted_price": price,
@@ -87,6 +90,7 @@ def quote_city_fare(
         "traffic_multiplier": _money(Decimal(str(max(1.0, traffic_factor)))),
         "demand_multiplier": _money(Decimal(str(max(1.0, demand_factor)))),
         "platform_fee_estimate": commission,
+        "passenger_service_fee_estimate": service_fee,
         "driver_net_estimate": driver_net,
         "distance_km": _money(Decimal(str(distance_km))),
         "duration_min": _money(Decimal(str(duration_min))),

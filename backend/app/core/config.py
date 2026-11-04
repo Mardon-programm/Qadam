@@ -57,13 +57,21 @@ class Settings(BaseSettings):
     auto_approve_drivers: bool = False
 
     # City pricing defaults (KGS) — tunable via ops later
-    city_base_fare: float = 50.0
-    city_per_km: float = 12.0
-    city_per_minute: float = 2.0
-    city_min_fare: float = 80.0
-    city_surge_cap: float = 2.0
+    city_base_fare: float = 90.0
+    city_per_km: float = 14.0
+    city_per_minute: float = 2.5
+    city_min_fare: float = 120.0
+    city_surge_cap: float = 1.6
     city_free_flow_kmh: float = 30.0
-    city_demand_cap: float = 1.4
+    city_demand_cap: float = 1.2
+
+    # Driver commission stays free for the launch MVP, but the client must pay a
+    # non-zero fare. Economy and premium tiers remain the visible customer options.
+    driver_commission_rate: float = 0.0
+    passenger_service_fee_rate: float = 0.05
+    mvp_free_days: int = 0
+
+    # Backwards-compatible aliases used by older code paths.
     flex_commission_rate: float = 0.0  # Free for drivers - no commission
     region_commission_rate: float = 0.0  # Free for drivers - no commission
 

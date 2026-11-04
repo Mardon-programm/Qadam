@@ -161,6 +161,7 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
             dropoffAddress: _dropoffAddress,
             dropoffLat: _dropoff!.latitude,
             dropoffLng: _dropoff!.longitude,
+            surge: tariffSurgeForId(_tariff),
           );
     } catch (e) {
       if (mounted) {
@@ -198,6 +199,7 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
             dropoffAddress: _dropoffAddress,
             dropoffLat: _dropoff!.latitude,
             dropoffLng: _dropoff!.longitude,
+            surge: tariffSurgeForId(_tariff),
           );
       if (mounted) context.go('/rides/${ride.id}');
     } catch (e) {
@@ -230,6 +232,7 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
     final route = _route(quote);
     final traffic = quote?.congestion ?? 'unknown';
     final pad = MediaQuery.of(context).padding;
+    final selectedTariff = tariffById(_tariff) ?? kTariffs[2];
 
     return Scaffold(
       backgroundColor: AppTheme.surface,
@@ -401,9 +404,9 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
                           children: [
                             const QadamIconBadge(icon: Icons.local_taxi_rounded, color: AppTheme.primary, size: 48),
                             const SizedBox(width: 12),
-                            const Expanded(
-                              child: Text('Эконом',
-                                  style: TextStyle(
+                            Expanded(
+                              child: Text(selectedTariff.name,
+                                  style: const TextStyle(
                                       fontFamily: 'Manrope',
                                       fontSize: 17,
                                       fontWeight: FontWeight.w800,

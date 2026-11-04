@@ -28,6 +28,7 @@ class CityRideNotifier extends AsyncNotifier<RideOrder?> {
     required String dropoffAddress,
     required double dropoffLat,
     required double dropoffLng,
+    double surge = 1.0,
   }) async {
     final api = ref.read(apiServiceProvider);
     final q = await api.getQuote(
@@ -37,6 +38,7 @@ class CityRideNotifier extends AsyncNotifier<RideOrder?> {
       dropoffAddress: dropoffAddress,
       dropoffLat: dropoffLat,
       dropoffLng: dropoffLng,
+      surge: surge,
     );
     ref.read(quoteProvider.notifier).state = q;
     return q;
@@ -49,6 +51,7 @@ class CityRideNotifier extends AsyncNotifier<RideOrder?> {
     required String dropoffAddress,
     required double dropoffLat,
     required double dropoffLng,
+    double surge = 1.0,
   }) async {
     state = const AsyncValue.loading();
     final api = ref.read(apiServiceProvider);
@@ -60,6 +63,7 @@ class CityRideNotifier extends AsyncNotifier<RideOrder?> {
         dropoffAddress: dropoffAddress,
         dropoffLat: dropoffLat,
         dropoffLng: dropoffLng,
+        surge: surge,
       );
       state = AsyncValue.data(ride);
       ref.read(activeRideProvider.notifier).state = ride;

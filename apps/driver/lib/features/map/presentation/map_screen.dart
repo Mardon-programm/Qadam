@@ -14,6 +14,16 @@ import '../../../shared/widgets/qadam_ui.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
+const _kgBounds = LatLngBounds(
+  LatLng(39.15, 69.20),
+  LatLng(43.60, 80.70),
+);
+
+LatLng _clampToKyrgyzstan(LatLng point) {
+  final lat = point.latitude.clamp(_kgBounds.south, _kgBounds.north);
+  final lng = point.longitude.clamp(_kgBounds.west, _kgBounds.east);
+  return LatLng(lat, lng);
+}
 
 /// CARTO Voyager: readable streets, soft colours, no key required.
 const _baseTiles =
@@ -96,10 +106,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10),
       );
+      final driverPosition = _clampToKyrgyzstan(
+        LatLng(position.latitude, position.longitude),
+      );
       if (mounted) {
-        setState(
-          () => _driverPosition = LatLng(position.latitude, position.longitude),
-        );
+        setState(() => _driverPosition = driverPosition);
         _mapController.move(_driverPosition!, 15);
       }
       ref.read(driverApiProvider).updateLocation(position.latitude, position.longitude).catchError((_) {});
@@ -111,7 +122,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
       ).listen((p) {
         if (!mounted) return;
-        setState(() => _driverPosition = LatLng(p.latitude, p.longitude));
+        final next = _clampToKyrgyzstan(LatLng(p.latitude, p.longitude));
+        setState(() => _driverPosition = next);
         if (_selectedOfferId != null) _fitToRoute();
         final now = DateTime.now();
         if (now.difference(_lastLocationSent).inSeconds >= 12) {
@@ -388,7 +400,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _driverPosition ?? _bishkek,
+              initialCenter: _clampToKyrgyzstan(_driverPosition ?? _bishkek),
               initialZoom: 14,
               minZoom: 10,
               maxZoom: 18,

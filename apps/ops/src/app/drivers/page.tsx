@@ -133,10 +133,29 @@ export default function DriversPage() {
     },
   ]
 
+  const pendingCount = drivers?.filter((d: any) => d.verification_status === 'pending').length ?? 0
+  const approvedCount = drivers?.filter((d: any) => d.verification_status === 'approved').length ?? 0
+  const rejectedCount = drivers?.filter((d: any) => d.verification_status === 'rejected').length ?? 0
+
   return (
     <div>
       <Header title="Водители" />
       <div className="p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-muted">На проверке</p>
+            <p className="mt-3 text-3xl font-bold text-ink">{pendingCount}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-muted">Одобрены</p>
+            <p className="mt-3 text-3xl font-bold text-green-600">{approvedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-muted">Отклонены</p>
+            <p className="mt-3 text-3xl font-bold text-red-600">{rejectedCount}</p>
+          </div>
+        </div>
+
         {/* Pending docs alert */}
         {pending && pending.length > 0 && (
           <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">

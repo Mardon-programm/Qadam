@@ -9,6 +9,7 @@ import '../../../core/api/api_error.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../features/offers/offer_notifications.dart';
 import '../../../shared/widgets/qadam_ui.dart';
 import 'shift_card.dart';
 
@@ -40,6 +41,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Timer? _heartbeatTimer;
   Timer? _offersTimer;
+  List<dynamic> _lastOffers = const [];
+  bool _offersInitialized = false;
 
   @override
   void initState() {
@@ -141,6 +144,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final activeRideAsync = ref.watch(_activeRideProvider);
     final isOnline = ref.watch(_onlineProvider);
     final l10n = AppLocalizations.of(context);
+    final currentOffers = offersAsync.valueOrNull ?? const <dynamic>[];
+
+    if (!_offersInitialized) {
+      _offersInitialized = true;
+      _lastOffers = currentOffers;
+    } else if (currentOffers.isNotEmpty) {
+      final newOfferIds = findNewOfferIds(_lastOffers, currentOffers);
+      if (newOfferIds.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          HapticFeedback.mediumImpact();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              backgroundColor: AppTheme.primary,
+              content: Text(
+                newOfferIds.length == 1
+                    ? 'Новый заказ уже в приложении'
+                    : 'Новых заказов: ${newOfferIds.length}',
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        });
+      }
+      _lastOffers = currentOffers;
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.surface,

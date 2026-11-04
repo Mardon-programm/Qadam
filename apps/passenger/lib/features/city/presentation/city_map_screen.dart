@@ -20,6 +20,16 @@ import 'sos_sheet.dart';
 
 // Default centre: Bishkek
 const _bishkek = LatLng(42.8746, 74.5698);
+const _kgBounds = LatLngBounds(
+  LatLng(39.15, 69.20),
+  LatLng(43.60, 80.70),
+);
+
+LatLng _clampToKyrgyzstan(LatLng point) {
+  final lat = point.latitude.clamp(_kgBounds.south, _kgBounds.north);
+  final lng = point.longitude.clamp(_kgBounds.west, _kgBounds.east);
+  return LatLng(lat, lng);
+}
 
 /// CARTO Voyager: readable streets, soft colours, no key required.
 const _baseTiles =
@@ -95,7 +105,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10),
       );
-      final pos = LatLng(position.latitude, position.longitude);
+      final pos = _clampToKyrgyzstan(LatLng(position.latitude, position.longitude));
       if (!mounted) return;
 
       setState(() {
@@ -167,15 +177,16 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
   }
 
   void _onMapTap(TapPosition _, LatLng point) {
+    final clamped = _clampToKyrgyzstan(point);
     if (_pickup == null) {
       setState(() {
-        _pickup = point;
-        _pickupAddress = _coords(point);
+        _pickup = clamped;
+        _pickupAddress = _coords(clamped);
       });
-      _describe(point, isPickup: true);
+      _describe(clamped, isPickup: true);
       return;
     }
-    _setDropoff(point);
+    _setDropoff(clamped);
   }
 
   Future<void> _pickPlace({required bool isPickup}) async {
@@ -185,7 +196,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
       near: _pickup,
     );
     if (place == null || !mounted) return;
-    final point = LatLng(place.lat, place.lng);
+    final point = _clampToKyrgyzstan(LatLng(place.lat, place.lng));
     if (isPickup) {
       _followUser = false;
       _positionStream?.cancel();
@@ -346,7 +357,7 @@ class _CityMapScreenState extends ConsumerState<CityMapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _pickup ?? _bishkek,
+              initialCenter: _clampToKyrgyzstan(_pickup ?? _bishkek),
               initialZoom: 14,
               minZoom: 10,
               maxZoom: 18,

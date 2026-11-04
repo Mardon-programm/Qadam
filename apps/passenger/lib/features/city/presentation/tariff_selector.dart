@@ -19,20 +19,6 @@ class Tariff {
 
 const kTariffs = [
   Tariff(
-    id: 'free',
-    name: 'Free',
-    subtitle: 'Полностью бесплатный',
-    icon: Icons.local_taxi_rounded,
-    multiplier: 0.0,
-  ),
-  Tariff(
-    id: 'free_plus',
-    name: 'Free+',
-    subtitle: 'Бесплатный + помощь',
-    icon: Icons.support_agent_rounded,
-    multiplier: 0.0,
-  ),
-  Tariff(
     id: 'economy',
     name: 'Эконом',
     subtitle: 'Самый доступный',
@@ -48,8 +34,8 @@ const kTariffs = [
   ),
   Tariff(
     id: 'business',
-    name: 'Бизнес',
-    subtitle: 'Классный салон',
+    name: 'Премиум',
+    subtitle: 'Комфортный класс',
     icon: Icons.workspace_premium_rounded,
     multiplier: 1.55,
   ),
@@ -68,6 +54,30 @@ const kTariffs = [
     multiplier: 2.3,
   ),
 ];
+
+double tariffSurgeForId(String tariffId) {
+  switch (tariffId) {
+    case 'economy':
+      return 1.0;
+    case 'comfort':
+      return 1.25;
+    case 'business':
+      return 1.55;
+    case 'minivan':
+      return 1.8;
+    case 'vip':
+      return 2.3;
+    default:
+      return 1.0;
+  }
+}
+
+Tariff? tariffById(String tariffId) {
+  for (final tariff in kTariffs) {
+    if (tariff.id == tariffId) return tariff;
+  }
+  return null;
+}
 
 class TariffSelector extends StatelessWidget {
   const TariffSelector({
@@ -96,18 +106,23 @@ class TariffSelector extends StatelessWidget {
             ),
           ),
         ),
-        Row(
-          children: kTariffs.map((t) {
-            final selected = t.id == selectedId;
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                    right: t == kTariffs.last ? 0 : 10),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: kTariffs.length,
+            padding: const EdgeInsets.only(right: 6),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final t = kTariffs[index];
+              final selected = t.id == selectedId;
+              return SizedBox(
+                width: 180,
                 child: GestureDetector(
                   onTap: () => onChanged(t.id),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     decoration: BoxDecoration(
                       gradient: selected ? AppTheme.brandGradient : null,
                       color: selected ? null : Colors.white,
@@ -118,6 +133,7 @@ class TariffSelector extends StatelessWidget {
                       boxShadow: selected ? AppTheme.floatShadow : AppTheme.softShadow,
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
                           width: 38,
@@ -136,6 +152,7 @@ class TariffSelector extends StatelessWidget {
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 t.name,
@@ -146,9 +163,10 @@ class TariffSelector extends StatelessWidget {
                                   color: selected ? Colors.white : AppTheme.textPrimary,
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 t.subtitle,
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'Manrope',
@@ -166,9 +184,9 @@ class TariffSelector extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );
