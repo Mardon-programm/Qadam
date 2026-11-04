@@ -106,11 +106,20 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:
-        """Render/Heroku hand out postgres:// URLs; asyncpg needs a driver."""
+        """Render/Heroku hand out postgres:// URLs; asyncpg needs a driver.
+
+        asyncpg does not accept the `sslmode` query parameter (that is psycopg),
+        so strip it out to avoid a crash on Render / Neon / Supabase URLs.
+        """
         if value.startswith("postgres://"):
-            return "postgresql+asyncpg://" + value[len("postgres://") :]
+            value = "postgresql+asyncpg://" + value[len("postgres://") :]
         if value.startswith("postgresql://"):
-            return "postgresql+asyncpg://" + value[len("postgresql://") :]
+            value = "postgresql+asyncpg://" + value[len("postgresql://") :]
+        # Remove sslmode=require which asyncpg does not accept
+        if "?" in value:
+            base, qs = value.split("?", 1)
+            params = [p for p in qs.split("&") if not p.startswith("sslmode=")]
+            value = base + ("?" + "&".join(params) if params else "")
         return value
 
     @field_validator("secret_key")
