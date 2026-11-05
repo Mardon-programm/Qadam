@@ -196,10 +196,11 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
       );
       return;
     }
-    final quote = ref.read(quoteProvider);
+    var quote = ref.read(quoteProvider);
     if (quote == null) {
-      _goQuote();
-      return;
+      await _goQuote();
+      quote = ref.read(quoteProvider);
+      if (quote == null) return;
     }
     setState(() => _ordering = true);
     try {
