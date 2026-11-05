@@ -310,6 +310,17 @@ async def accept_ride(
     if order.driver_id is not None:
         raise ConflictError("Ride already assigned")
 
+    # Only drivers who received an active offer may accept
+    offer_result = await db.execute(
+        select(RideOffer).where(
+            RideOffer.ride_order_id == order.id,
+            RideOffer.driver_id == driver.id,
+            RideOffer.status == "offered",
+        )
+    )
+    if not offer_result.scalar_one_or_none():
+        raise ForbiddenError("Ride offer not found or expired")
+
     vehicle = await db.get(Vehicle, driver.active_vehicle_id)
     if not vehicle or vehicle.status != VerificationStatus.APPROVED:
         raise ForbiddenError("Vehicle not approved")
@@ -375,6 +386,13 @@ async def transition_ride(
         order.final_price = order.quoted_price
     if new_status == RideOrderStatus.CANCELLED:
         order.cancelled_at = now
+
+    # Free the driver when the ride reaches a terminal state
+    if new_status in {RideOrderStatus.COMPLETED, RideOrderStatus.CANCELLED} and order.driver_id:
+        driver = await db.get(DriverProfile, order.driver_id)
+        if driver and driver.online_status == DriverOnlineStatus.BUSY:
+            driver.online_status = DriverOnlineStatus.ONLINE
+
     await db.flush()
     return order
 
