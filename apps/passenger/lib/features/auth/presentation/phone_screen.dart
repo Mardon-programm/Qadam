@@ -45,9 +45,11 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       final failure = ApiFailure.from(e);
       final message = failure.isRateLimited
           ? l10n.otpRateLimited(failure.retryInMinutes)
-          : failure.isNetwork
-              ? l10n.networkError
-              : l10n.codeSendFailed;
+          : failure.isTimeout
+              ? 'Сервер не отвечает. Попробуйте снова (сервис может запускаться).'
+              : (failure.isConnectionError || failure.isNetwork)
+                  ? l10n.networkError
+                  : (failure.message ?? l10n.codeSendFailed);
       if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _loading = false);

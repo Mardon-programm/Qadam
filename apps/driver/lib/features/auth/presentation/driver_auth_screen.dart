@@ -77,7 +77,7 @@ class _DriverAuthScreenState extends ConsumerState<DriverAuthScreen> {
       if (mounted) context.go('/dashboard');
     } catch (e) {
       final failure = ApiFailure.from(e);
-      setState(() => _error = failure.isNetwork ? 'Нет сети' : 'Ошибка: ${e.toString()}');
+      setState(() => _error = failure.displayMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

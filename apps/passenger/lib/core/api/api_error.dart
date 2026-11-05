@@ -11,16 +11,42 @@ class ApiFailure {
     this.code,
     this.message,
     this.retryAfterSeconds,
+    this.type,
   });
 
   final int? statusCode;
   final String? code;
   final String? message;
   final int? retryAfterSeconds;
+  final DioExceptionType? type;
 
   bool get isRateLimited => statusCode == 429 || code == 'rate_limited';
 
-  bool get isNetwork => statusCode == null;
+  bool get isTimeout =>
+      type == DioExceptionType.connectionTimeout ||
+      type == DioExceptionType.sendTimeout ||
+      type == DioExceptionType.receiveTimeout;
+
+  bool get isConnectionError => type == DioExceptionType.connectionError;
+
+  /// True when the request likely didn't reach a healthy server (no HTTP status).
+  /// Kept for backward compatibility with existing call sites.
+  bool get isNetwork => statusCode == null && (isTimeout || isConnectionError || type == DioExceptionType.unknown || type == null);
+
+  String get displayMessage {
+    if (isRateLimited) {
+      return 'Слишком много попыток. Повторите позже.';
+    }
+    if (isTimeout) {
+      return 'Сервер не отвечает. Проверьте интернет и попробуйте снова (сервис может запускаться).';
+    }
+    if (isConnectionError || (statusCode == null && type != DioExceptionType.badResponse)) {
+      return 'Не удалось подключиться к серверу. Проверьте интернет (Wi‑Fi/мобильный) и попробуйте снова.';
+    }
+    if (message != null && message!.trim().isNotEmpty) return message!;
+    if (statusCode != null) return 'Ошибка сервера ($statusCode).';
+    return 'Произошла ошибка. Попробуйте снова.';
+  }
 
   int get retryInMinutes {
     final seconds = retryAfterSeconds ?? 900;
@@ -50,6 +76,7 @@ class ApiFailure {
       code: code,
       message: message,
       retryAfterSeconds: retryAfter,
+      type: error.type,
     );
   }
 

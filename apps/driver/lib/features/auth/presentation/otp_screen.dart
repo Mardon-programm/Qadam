@@ -74,7 +74,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       final failure = ApiFailure.from(e);
       final message = failure.isRateLimited
           ? l10n.otpRateLimited(failure.retryInMinutes)
-          : l10n.invalidCode;
+          : failure.isTimeout
+              ? 'Сервер не отвечает. Попробуйте снова (сервис может запускаться).'
+              : (failure.isConnectionError || failure.isNetwork)
+                  ? l10n.networkError
+                  : (failure.message ?? l10n.invalidCode);
       if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _loading = false);
