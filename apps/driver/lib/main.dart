@@ -28,7 +28,13 @@ void main() async {
     ),
   );
 
-  final localeConfig = await loadLocaleConfig();
+  LocaleConfig localeConfig;
+  try {
+    localeConfig = await loadLocaleConfig();
+  } catch (e, st) {
+    debugPrint('LOCALE LOAD ERROR: $e\n$st');
+    localeConfig = const LocaleConfig();
+  }
 
   runApp(
     ProviderScope(

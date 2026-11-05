@@ -25,7 +25,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: isFirstLaunch ? '/language' : '/auth/phone',
     redirect: (context, state) async {
-      final token = await readAccessToken();
+      String? token;
+      try {
+        token = await readAccessToken();
+      } catch (_) {
+        token = null;
+      }
       final hasToken = token != null && token.isNotEmpty;
       final location = state.matchedLocation;
       final inAuth = location.startsWith('/auth') || location == '/language';
