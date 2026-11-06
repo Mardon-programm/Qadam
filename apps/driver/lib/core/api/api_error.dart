@@ -12,6 +12,7 @@ class ApiFailure {
     this.message,
     this.retryAfterSeconds,
     this.type,
+    this.raw,
   });
 
   final int? statusCode;
@@ -19,6 +20,7 @@ class ApiFailure {
   final String? message;
   final int? retryAfterSeconds;
   final DioExceptionType? type;
+  final String? raw;
 
   bool get isRateLimited => statusCode == 429 || code == 'rate_limited';
 
@@ -38,14 +40,17 @@ class ApiFailure {
       return 'Слишком много попыток. Повторите позже.';
     }
     if (isTimeout) {
-      return 'Сервер не отвечает. Проверьте интернет и попробуйте снова (сервис может запускаться).';
+      return 'Сервер не отвечает. Проверьте интернет и попробуйте снова (сервис может запускаться). [${type?.name}]';
     }
     if (isConnectionError || (statusCode == null && type != DioExceptionType.badResponse)) {
-      return 'Не удалось подключиться к серверу. Проверьте интернет (Wi‑Fi/мобильный) и попробуйте снова.';
+      final detail = (raw != null && raw!.trim().isNotEmpty)
+          ? ' ${raw!}'
+          : (message != null && message!.trim().isNotEmpty ? ' ${message!}' : '');
+      return 'Не удалось подключиться к серверу. Проверьте интернет (Wi‑Fi/мобильный) и попробуйте снова. [${type?.name ?? "unknown"}]$detail';
     }
     if (message != null && message!.trim().isNotEmpty) return message!;
     if (statusCode != null) return 'Ошибка сервера ($statusCode).';
-    return 'Произошла ошибка. Попробуйте снова.';
+    return 'Произошла ошибка. Попробуйте снова. [${type?.name ?? "error"}]';
   }
 
   int get retryInMinutes {
@@ -71,12 +76,14 @@ class ApiFailure {
       body?['retry_after_seconds'] ?? detailMap?['retry_after_seconds'],
     );
 
+    final raw = error.error?.toString() ?? error.message;
     return ApiFailure(
       statusCode: response?.statusCode,
       code: code,
       message: message,
       retryAfterSeconds: retryAfter,
       type: error.type,
+      raw: raw,
     );
   }
 
