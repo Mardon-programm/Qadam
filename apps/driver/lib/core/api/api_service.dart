@@ -8,19 +8,56 @@ const _baseUrl = String.fromEnvironment(
   defaultValue: 'https://qadam-nc9f.onrender.com/api/v1',
 );
 
-const _storage = FlutterSecureStorage();
+const _storage = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
 const _accessKey = 'access_token';
 const _refreshKey = 'refresh_token';
 
 Future<void> saveTokens(String a, String r) async {
-  await _storage.write(key: _accessKey, value: a);
-  await _storage.write(key: _refreshKey, value: r);
+  try {
+    await _storage.write(key: _accessKey, value: a);
+    await _storage.write(key: _refreshKey, value: r);
+  } catch (_) {
+    try {
+      await _storage.deleteAll(
+        aOptions: const AndroidOptions(encryptedSharedPreferences: true),
+      );
+    } catch (_) {}
+    await _storage.write(key: _accessKey, value: a);
+    await _storage.write(key: _refreshKey, value: r);
+  }
 }
 
-Future<String?> readAccessToken() => _storage.read(key: _accessKey);
-Future<String?> readRefreshToken() => _storage.read(key: _refreshKey);
+Future<String?> readAccessToken() async {
+  try {
+    return await _storage.read(key: _accessKey);
+  } catch (_) {
+    await clearTokens();
+    return null;
+  }
+}
+
+Future<String?> readRefreshToken() async {
+  try {
+    return await _storage.read(key: _refreshKey);
+  } catch (_) {
+    await clearTokens();
+    return null;
+  }
+}
+
 Future<void> clearTokens() async {
-  await _storage.deleteAll();
+  try {
+    await _storage.delete(key: _accessKey);
+    await _storage.delete(key: _refreshKey);
+  } catch (_) {
+    try {
+      await _storage.deleteAll(
+        aOptions: const AndroidOptions(encryptedSharedPreferences: true),
+      );
+    } catch (_) {}
+  }
 }
 
 Dio _buildDio() {
