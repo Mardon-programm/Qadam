@@ -181,8 +181,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final failure = ApiFailure.from(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: AppTheme.error),
+          SnackBar(content: Text(failure.displayMessage), backgroundColor: AppTheme.error),
         );
       }
     }
@@ -269,8 +270,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final failure = ApiFailure.from(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: AppTheme.error),
+          SnackBar(content: Text(failure.displayMessage), backgroundColor: AppTheme.error),
         );
       }
     }

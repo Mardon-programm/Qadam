@@ -130,7 +130,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final failure = ApiFailure.from(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(failure.message ?? 'Не удалось выйти в онлайн. Добавьте авто в разделе «Документы».'),
+            content: Text(failure.displayMessage),
             backgroundColor: AppTheme.error,
           ),
         );
