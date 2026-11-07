@@ -119,7 +119,7 @@ async def quote(body: QuoteIn, db: DbSession) -> QuoteOut:
 @router.post(
     "/rides",
     response_model=RideOut,
-    dependencies=[Depends(require_roles(UserRole.PASSENGER, UserRole.OPS))],
+    dependencies=[Depends(require_roles(UserRole.PASSENGER, UserRole.DRIVER, UserRole.OPS))],
 )
 async def create_ride(
     body: CreateRideIn,
@@ -255,12 +255,23 @@ async def cancel(
     if user.role == UserRole.PASSENGER:
         passenger_id = user.id
     elif user.role == UserRole.DRIVER:
-        driver = await get_or_create_driver_profile(db, user.id)
-        driver_id = driver.id
+        # If this user booked the ride as a passenger, cancel as passenger;
+        # otherwise cancel as the assigned driver.
+        existing = await db.get(RideOrder, ride_id)
+        if existing and existing.passenger_id == user.id and existing.driver_id != (await get_or_create_driver_profile(db, user.id)).id:
+            passenger_id = user.id
+        else:
+            driver = await get_or_create_driver_profile(db, user.id)
+            if existing and existing.driver_id == driver.id:
+                driver_id = driver.id
+            elif existing and existing.passenger_id == user.id:
+                passenger_id = user.id
+            else:
+                driver_id = driver.id
     order = await service.cancel_ride(
         db,
         order_id=ride_id,
-        cancelled_by=user.role,
+        cancelled_by="passenger" if passenger_id else user.role,
         reason=body.reason or "user_cancelled",
         passenger_id=passenger_id,
         driver_id=driver_id,

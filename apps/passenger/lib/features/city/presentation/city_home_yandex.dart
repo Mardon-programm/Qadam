@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/api/api_error.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/api/models.dart';
 import '../../../core/l10n/app_localizations.dart';
@@ -224,8 +225,9 @@ class _CityHomeScreenState extends ConsumerState<CityHomeScreen> {
       if (mounted) context.go('/rides/${ride.id}');
     } catch (e) {
       if (mounted) {
+        final failure = ApiFailure.from(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: AppTheme.error),
+          SnackBar(content: Text(failure.displayMessage), backgroundColor: AppTheme.error),
         );
       }
     } finally {
