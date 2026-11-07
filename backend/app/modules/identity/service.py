@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -166,6 +167,41 @@ async def login_driver(
     if user.status != UserStatus.ACTIVE:
         raise ForbiddenError("Account blocked")
     user.last_login_at = datetime.now(UTC)
+    return user
+
+
+async def login_ops(
+    db: AsyncSession,
+    *,
+    phone: str | None,
+    password: str,
+) -> User:
+    settings = get_settings()
+    expected = settings.ops_password or os.environ.get("OPS_PASS") or os.environ.get("OPS_PASSWORD") or ""
+    if not expected or password != expected:
+        raise UnauthorizedError("Invalid credentials")
+
+    target_phone = phone or settings.ops_bootstrap_phone
+    result = await db.execute(select(User).where(User.phone == target_phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        user = User(
+            phone=target_phone,
+            full_name=settings.ops_bootstrap_name,
+            role=UserRole.OPS,
+            status=UserStatus.ACTIVE,
+            is_phone_verified=True,
+            last_login_at=datetime.now(UTC),
+        )
+        db.add(user)
+        await db.flush()
+    else:
+        if user.status == UserStatus.BLOCKED:
+            raise ForbiddenError("Account blocked")
+        user.role = UserRole.OPS
+        user.status = UserStatus.ACTIVE
+        user.is_phone_verified = True
+        user.last_login_at = datetime.now(UTC)
     return user
 
 

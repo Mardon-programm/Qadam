@@ -65,6 +65,8 @@ export const authApi = {
     api.post('/auth/otp/request', { phone, role: 'ops' }),
   verifyOtp: (phone: string, code: string) =>
     api.post('/auth/otp/verify', { phone, code, role: 'ops' }),
+  loginOps: (phone: string | null, password: string) =>
+    api.post('/auth/login/ops', { phone: phone || null, password }),
   me: () => api.get('/auth/me'),
 }
 

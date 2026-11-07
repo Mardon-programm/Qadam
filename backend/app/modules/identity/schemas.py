@@ -35,6 +35,11 @@ class LoginDriverIn(BaseModel):
     password: str
 
 
+class LoginOpsIn(BaseModel):
+    phone: str | None = None
+    password: str
+
+
 class TokenOut(BaseModel):
     access_token: str
     refresh_token: str

@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     ops_bootstrap_phone: str = "+996700000001"
     ops_bootstrap_name: str = "Qadam Ops"
+    ops_password: str = ""
     # Set to true for a quick launch without manual document review (NOT for prod scale).
     auto_approve_drivers: bool = False
 

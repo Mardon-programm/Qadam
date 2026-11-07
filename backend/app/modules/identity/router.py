@@ -5,6 +5,7 @@ from app.core.deps import CurrentUser, DbSession, RedisDep
 from app.modules.identity import otp, service
 from app.modules.identity.schemas import (
     LoginDriverIn,
+    LoginOpsIn,
     MeOut,
     OTPRequestIn,
     OTPRequestOut,
@@ -116,6 +117,33 @@ async def login_driver(
         actor_id=user.id,
         actor_role=user.role,
         action="auth.login_driver",
+        object_type="user",
+        object_id=user.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return TokenOut(**tokens)
+
+
+@router.post("/login/ops", response_model=TokenOut)
+async def login_ops(
+    body: LoginOpsIn, request: Request, db: DbSession
+) -> TokenOut:
+    user = await service.login_ops(
+        db,
+        phone=body.phone,
+        password=body.password,
+    )
+    tokens = await service.issue_tokens(
+        db,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+    )
+    await service.write_audit(
+        db,
+        actor_id=user.id,
+        actor_role=user.role,
+        action="auth.login_ops",
         object_type="user",
         object_id=user.id,
         ip_address=request.client.host if request.client else None,
